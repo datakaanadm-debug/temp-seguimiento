@@ -20,11 +20,15 @@ declare global {
 }
 
 let initialized = false
+let warnedMissingKey = false
 
 export function initEcho(): void {
   if (typeof window === 'undefined' || initialized) return
   if (!config.reverb.appKey) {
-    console.warn('[realtime] REVERB app key missing; realtime disabled')
+    if (!warnedMissingKey) {
+      warnedMissingKey = true
+      console.info('[realtime] REVERB app key missing; realtime disabled')
+    }
     return
   }
   initialized = true

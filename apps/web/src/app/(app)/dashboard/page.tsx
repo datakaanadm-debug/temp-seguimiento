@@ -58,7 +58,9 @@ export default async function DashboardPage() {
   const inReview = tasks.filter((t) => t.state === 'IN_REVIEW')
   const overdue = tasks.filter((t) => t.is_overdue && t.state !== 'DONE')
 
-  const attentionTasks = [...blockedTasks, ...overdue, ...inReview].slice(0, 6)
+  const attentionTasks = Array.from(
+    new Map([...blockedTasks, ...overdue, ...inReview].map((t) => [t.id, t])).values(),
+  ).slice(0, 6)
   const criticalInsights = insights.filter(
     (i) => i.severity === 'high' || i.severity === 'critical',
   )

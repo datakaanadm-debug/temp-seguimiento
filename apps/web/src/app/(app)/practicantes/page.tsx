@@ -1,11 +1,18 @@
 'use client'
 
 import { useQueryState, parseAsString } from 'nuqs'
-import { Input } from '@/components/ui/input'
+import { Icon } from '@/components/ui/icon'
+import { SectionTitle } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useProfiles } from '@/features/people/hooks/use-people'
 import { PersonRow } from '@/features/people/components/person-row'
-import { Search } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+const KINDS = [
+  { id: 'intern', label: 'Practicantes' },
+  { id: 'mentor', label: 'Mentores' },
+  { id: 'staff', label: 'Staff' },
+] as const
 
 export default function PracticantesPage() {
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
@@ -18,50 +25,88 @@ export default function PracticantesPage() {
   })
   const profiles = data?.data ?? []
 
-  return (
-    <div className="container py-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Personas</h1>
-        <p className="text-sm text-muted-foreground">Practicantes, mentores y equipo.</p>
-      </div>
+  const stats = {
+    total: profiles.length,
+    interns: profiles.filter((p) => p.kind === 'intern').length,
+    mentors: profiles.filter((p) => p.kind === 'mentor').length,
+  }
 
-      <div className="flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+  return (
+    <div className="mx-auto max-w-[1200px] px-7 py-5 pb-10">
+      <SectionTitle
+        kicker="Workspace · personas"
+        title="Practicantes, mentores y equipo"
+        sub={
+          isLoading
+            ? 'Cargando…'
+            : `${stats.total} totales · ${stats.interns} practicantes · ${stats.mentors} mentores`
+        }
+        right={
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+          >
+            <Icon.Plus size={13} />
+            Invitar persona
+          </button>
+        }
+      />
+
+      {/* Search + filters */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[280px] flex-1">
+          <Icon.Search
+            size={13}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3"
+          />
+          <input
+            type="text"
             placeholder="Buscar por nombre o email…"
             value={q ?? ''}
             onChange={(e) => setQ(e.target.value || null)}
-            className="pl-9"
+            className="w-full rounded-md border border-paper-line bg-paper-raised py-[7px] pl-8 pr-3 text-[13px] text-ink outline-none focus:border-primary"
           />
         </div>
-        {(['intern', 'mentor', 'staff'] as const).map((k) => (
-          <button
-            key={k}
-            onClick={() => setKind(kind === k ? null : k)}
-            className={`px-3 py-1.5 rounded-md border text-sm ${
-              kind === k ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
-            }`}
-          >
-            {k === 'intern' ? 'Practicantes' : k === 'mentor' ? 'Mentores' : 'Staff'}
-          </button>
-        ))}
+        {KINDS.map((k) => {
+          const active = kind === k.id
+          return (
+            <button
+              key={k.id}
+              type="button"
+              onClick={() => setKind(active ? null : k.id)}
+              className={cn(
+                'rounded-full border px-3 py-1 text-[12px] font-medium transition',
+                active
+                  ? 'border-primary-ink bg-primary-soft text-primary-ink'
+                  : 'border-paper-line bg-paper-raised text-ink-2 hover:border-paper-line-soft',
+              )}
+            >
+              {k.label}
+            </button>
+          )
+        })}
       </div>
 
       {isLoading ? (
         <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
       ) : profiles.length === 0 ? (
-        <div className="border border-dashed rounded-lg p-12 text-center text-sm text-muted-foreground">
-          Sin resultados.
+        <div className="rounded-lg border border-dashed border-paper-line bg-paper-surface p-12 text-center">
+          <Icon.People size={22} className="mx-auto mb-2 text-ink-3" />
+          <p className="text-[13px] text-ink-3">Sin resultados con estos filtros.</p>
         </div>
       ) : (
-        <div className="rounded-lg border bg-card divide-y">
-          {profiles.map((p) => (
-            <PersonRow key={p.id} profile={p} />
+        <div className="overflow-hidden rounded-lg border border-paper-line bg-paper-raised">
+          {profiles.map((p, i) => (
+            <div
+              key={p.id}
+              className={cn(i < profiles.length - 1 && 'border-b border-paper-line-soft')}
+            >
+              <PersonRow profile={p} />
+            </div>
           ))}
         </div>
       )}

@@ -1,36 +1,45 @@
 import Link from 'next/link'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { initialsFromName } from '@/lib/utils'
+import { Icon } from '@/components/ui/icon'
+import { PaperBadge, TonalAvatar } from '@/components/ui/primitives'
 import type { Profile } from '@/types/api'
 
 export function PersonRow({ profile }: { profile: Profile }) {
   const u = profile.user
+  const progress = profile.intern_data?.progress_percent
+  const toneMap: Record<string, 'accent' | 'info' | 'ok' | 'neutral'> = {
+    intern: 'accent',
+    mentor: 'info',
+    staff: 'ok',
+  }
+
   return (
     <Link
       href={`/practicantes/${profile.id}`}
-      className="flex items-center gap-4 px-4 py-3 hover:bg-muted/40 transition-colors"
+      className="flex items-center gap-4 px-4 py-3 transition hover:bg-paper-bg-2"
     >
-      <Avatar className="h-10 w-10">
-        <AvatarImage src={u?.avatar_url ?? undefined} />
-        <AvatarFallback>{initialsFromName(u?.name ?? u?.email ?? '?')}</AvatarFallback>
-      </Avatar>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium truncate">{u?.name ?? u?.email ?? '—'}</div>
-        <div className="text-xs text-muted-foreground truncate">
+      <TonalAvatar size={36} name={u?.name ?? u?.email} />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-medium text-ink">{u?.name ?? u?.email ?? '—'}</div>
+        <div className="mt-0.5 truncate text-[11px] text-ink-3">
           {profile.position_title ?? profile.kind_label}
           {profile.intern_data?.university && ` · ${profile.intern_data.university}`}
         </div>
       </div>
-      {profile.intern_data?.progress_percent != null && (
-        <div className="hidden md:flex flex-col items-end">
-          <span className="text-xs text-muted-foreground">Horas</span>
-          <span className="text-sm font-medium tabular-nums">
-            {Math.round(profile.intern_data.progress_percent)}%
+      {progress != null && (
+        <div className="hidden items-center gap-2 md:flex">
+          <div className="h-1 w-20 overflow-hidden rounded-full bg-paper-line-soft">
+            <div
+              className="h-full rounded-full bg-primary"
+              style={{ width: `${Math.min(100, progress)}%` }}
+            />
+          </div>
+          <span className="min-w-[32px] text-right font-mono text-[11px] text-ink-3">
+            {Math.round(progress)}%
           </span>
         </div>
       )}
-      <Badge variant="outline">{profile.kind_label}</Badge>
+      <PaperBadge tone={toneMap[profile.kind] ?? 'neutral'}>{profile.kind_label}</PaperBadge>
+      <Icon.Chev size={12} className="text-ink-muted" />
     </Link>
   )
 }

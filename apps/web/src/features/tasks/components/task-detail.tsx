@@ -1,21 +1,31 @@
 'use client'
 
-import { useState } from 'react'
-import { ArrowLeft, Calendar, Pause, Play } from 'lucide-react'
 import Link from 'next/link'
-import { useTask } from '../hooks/use-tasks'
-import { useChangeTaskState } from '../hooks/use-task-mutations'
-import { useRunningTimer, useStartTimer, useStopTimer } from '../hooks/use-timer'
-import { Button } from '@/components/ui/button'
-import { StateBadge, PriorityBadge } from './state-badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Icon } from '@/components/ui/icon'
+import {
+  SectionTitle, PaperCard, PaperBadge, TonalAvatar, PriorityDot,
+} from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ALLOWED_TRANSITIONS, STATE_LABELS } from '../lib/state-machine'
-import { initialsFromName } from '@/lib/utils'
+import { useTask } from '../hooks/use-tasks'
+import { useChangeTaskState } from '../hooks/use-task-mutations'
+import { useRunningTimer, useStartTimer, useStopTimer } from '../hooks/use-timer'
+import {
+  ALLOWED_TRANSITIONS, STATE_LABELS, PRIORITY_LABELS,
+} from '../lib/state-machine'
 import type { TaskState } from '@/types/api'
+
+const STATE_TONE: Record<TaskState, 'neutral' | 'info' | 'accent' | 'warn' | 'ok' | 'danger'> = {
+  BACKLOG: 'neutral',
+  TO_DO: 'info',
+  IN_PROGRESS: 'accent',
+  IN_REVIEW: 'warn',
+  DONE: 'ok',
+  BLOCKED: 'danger',
+  CANCELLED: 'neutral',
+}
 
 export function TaskDetail({ taskId }: { taskId: string }) {
   const { data: task, isLoading } = useTask(taskId)
@@ -23,24 +33,29 @@ export function TaskDetail({ taskId }: { taskId: string }) {
   const startTimer = useStartTimer()
   const stopTimer = useStopTimer()
   const { data: runningTimer } = useRunningTimer()
-  const [reason, setReason] = useState('')
 
   if (isLoading) {
     return (
-      <div className="container py-6 space-y-4">
-        <Skeleton className="h-10 w-1/2" />
-        <Skeleton className="h-24 w-full" />
+      <div className="mx-auto max-w-[1100px] px-7 py-5 space-y-4">
+        <Skeleton className="h-12 w-1/2" />
+        <Skeleton className="h-64 w-full" />
       </div>
     )
   }
 
   if (!task) {
-    return <div className="container py-12 text-center text-muted-foreground">Tarea no encontrada.</div>
+    return (
+      <div className="mx-auto max-w-[1100px] px-7 py-16 text-center text-[13px] text-ink-3">
+        Tarea no encontrada.
+      </div>
+    )
   }
 
   const allowed = ALLOWED_TRANSITIONS[task.state]
   const thisTimerRunning = runningTimer?.task_id === task.id
   const otherTimerRunning = !!runningTimer && runningTimer.task_id !== task.id
+  const actualH = task.actual_minutes / 60
+  const estH = task.estimated_minutes ? task.estimated_minutes / 60 : 0
 
   const onChangeState = (state: TaskState) => {
     if (state === 'BLOCKED') {
@@ -53,129 +68,176 @@ export function TaskDetail({ taskId }: { taskId: string }) {
   }
 
   return (
-    <div className="container py-6 max-w-4xl">
+    <div className="mx-auto max-w-[1100px] px-7 py-5 pb-10">
       <Link
         href="/tareas"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="mb-3 inline-flex items-center gap-1 text-[12px] text-ink-3 hover:text-ink"
       >
-        <ArrowLeft className="h-4 w-4" /> Tareas
+        <Icon.Chev size={11} className="rotate-180" /> Tareas
       </Link>
 
-      <div className="mt-4 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{task.title}</h1>
-          <div className="mt-2 flex items-center gap-2">
-            <StateBadge state={task.state} />
-            <PriorityBadge priority={task.priority} />
+      <SectionTitle
+        kicker={`T-${task.id.slice(0, 8).toUpperCase()}`}
+        title={task.title}
+        sub={
+          <span className="flex items-center gap-2">
+            <PaperBadge tone={STATE_TONE[task.state]}>{STATE_LABELS[task.state]}</PaperBadge>
+            <span className="inline-flex items-center gap-1 text-[12px]">
+              <PriorityDot p={task.priority as any} />
+              {PRIORITY_LABELS[task.priority]}
+            </span>
             {task.due_at && (
-              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                {new Date(task.due_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+              <span className="inline-flex items-center gap-1 text-[12px] text-ink-3">
+                <Icon.Cal size={11} />
+                {new Date(task.due_at).toLocaleDateString('es-MX', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                })}
               </span>
             )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {thisTimerRunning ? (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => stopTimer.mutate({ entryId: runningTimer!.id })}
-            >
-              <Pause className="h-4 w-4 mr-1" />
-              Detener timer
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={otherTimerRunning}
-              onClick={() => startTimer.mutate({ taskId: task.id })}
-              title={otherTimerRunning ? 'Ya tienes un timer corriendo' : undefined}
-            >
-              <Play className="h-4 w-4 mr-1" />
-              Iniciar timer
-            </Button>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="default" size="sm">Cambiar estado</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {allowed.map((s) => (
-                <DropdownMenuItem key={s} onClick={() => onChangeState(s)}>
-                  → {STATE_LABELS[s]}
-                </DropdownMenuItem>
-              ))}
-              {allowed.length === 0 && (
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">Sin transiciones.</div>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+          </span>
+        }
+        right={
+          <>
+            {thisTimerRunning ? (
+              <button
+                type="button"
+                onClick={() => stopTimer.mutate({ entryId: runningTimer!.id })}
+                className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-2.5 py-[7px] text-[12px] font-medium text-destructive-foreground hover:opacity-90"
+              >
+                <Icon.Clock size={13} />
+                Detener timer
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => startTimer.mutate({ taskId: task.id })}
+                disabled={otherTimerRunning}
+                title={otherTimerRunning ? 'Ya tienes un timer corriendo' : undefined}
+                className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft disabled:opacity-40"
+              >
+                <Icon.Clock size={13} />
+                Iniciar timer
+              </button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+                >
+                  Cambiar estado
+                  <Icon.ChevDown size={11} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {allowed.map((s) => (
+                  <DropdownMenuItem key={s} onClick={() => onChangeState(s)}>
+                    → {STATE_LABELS[s]}
+                  </DropdownMenuItem>
+                ))}
+                {allowed.length === 0 && (
+                  <div className="px-2 py-1.5 text-[11px] text-ink-3">Sin transiciones.</div>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
 
       {task.blocked_reason && (
-        <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
-          <strong>Bloqueo:</strong> {task.blocked_reason}
+        <div className="mb-4 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive-soft p-3 text-[13px] text-destructive">
+          <Icon.Flag size={14} className="mt-0.5 shrink-0" />
+          <div>
+            <b>Bloqueo reportado.</b> {task.blocked_reason}
+          </div>
         </div>
       )}
 
-      <div className="mt-6 grid gap-6 md:grid-cols-[1fr_260px]">
+      <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 280px' }}>
         <div className="space-y-4">
-          <section>
-            <h2 className="text-sm font-semibold mb-2">Descripción</h2>
+          <PaperCard title="Descripción">
             {task.description ? (
-              <p className="text-sm text-foreground/80 whitespace-pre-wrap">{task.description}</p>
+              <p className="whitespace-pre-wrap font-serif text-[15px] leading-[1.65] text-ink">
+                {task.description}
+              </p>
             ) : (
-              <p className="text-sm text-muted-foreground italic">Sin descripción.</p>
+              <p className="italic text-[13px] text-ink-3">Sin descripción.</p>
             )}
-          </section>
+          </PaperCard>
         </div>
 
-        <aside className="space-y-4 text-sm">
-          <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Asignado a</div>
+        <aside className="flex flex-col gap-3">
+          <PaperCard title="Asignado a">
             {task.assignee ? (
-              <div className="mt-1 flex items-center gap-2">
-                <Avatar className="h-7 w-7">
-                  <AvatarImage src={task.assignee.avatar_url ?? undefined} />
-                  <AvatarFallback className="text-[10px]">
-                    {initialsFromName(task.assignee.name ?? task.assignee.email)}
-                  </AvatarFallback>
-                </Avatar>
-                <span>{task.assignee.name ?? task.assignee.email}</span>
+              <div className="flex items-center gap-2.5">
+                <TonalAvatar size={28} name={task.assignee.name ?? task.assignee.email} />
+                <span className="truncate text-[13px] font-medium text-ink">
+                  {task.assignee.name ?? task.assignee.email}
+                </span>
               </div>
             ) : (
-              <div className="mt-1 text-muted-foreground italic">Sin asignar</div>
+              <div className="italic text-[12px] text-ink-3">Sin asignar</div>
             )}
-          </div>
+          </PaperCard>
 
-          <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Tiempo</div>
-            <div className="mt-1">
-              {Math.round(task.actual_minutes / 60 * 10) / 10}h
-              {task.estimated_minutes != null && (
-                <span className="text-muted-foreground"> / {Math.round(task.estimated_minutes / 60 * 10) / 10}h est.</span>
+          <PaperCard>
+            <div className="font-mono text-[10.5px] uppercase tracking-[0.5px] text-ink-3">
+              Tiempo
+            </div>
+            <div className="mt-1 font-serif text-[26px] leading-none text-ink">
+              {actualH.toFixed(1)}h
+              {estH > 0 && (
+                <span className="ml-1 font-mono text-[13px] text-ink-3">/{estH.toFixed(0)}h</span>
               )}
             </div>
-          </div>
+            {estH > 0 && (
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-paper-line-soft">
+                <div
+                  className={`h-full rounded-full ${
+                    actualH > estH ? 'bg-destructive' : 'bg-primary'
+                  }`}
+                  style={{ width: `${Math.min(100, (actualH / estH) * 100)}%` }}
+                />
+              </div>
+            )}
+          </PaperCard>
 
-          <div>
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Creada</div>
-            <div className="mt-1">{new Date(task.created_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</div>
-          </div>
-
-          {task.completed_at && (
-            <div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Completada</div>
-              <div className="mt-1">{new Date(task.completed_at).toLocaleDateString('es-MX')}</div>
+          <PaperCard>
+            <div className="space-y-2 text-[12px]">
+              <Row
+                label="Creada"
+                value={new Date(task.created_at).toLocaleDateString('es-MX', {
+                  day: 'numeric',
+                  month: 'short',
+                })}
+              />
+              {task.started_at && (
+                <Row
+                  label="Iniciada"
+                  value={new Date(task.started_at).toLocaleDateString('es-MX')}
+                />
+              )}
+              {task.completed_at && (
+                <Row
+                  label="Completada"
+                  value={new Date(task.completed_at).toLocaleDateString('es-MX')}
+                />
+              )}
             </div>
-          )}
+          </PaperCard>
         </aside>
       </div>
+    </div>
+  )
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-2">
+      <span className="text-ink-3">{label}</span>
+      <span className="font-mono text-ink">{value}</span>
     </div>
   )
 }
