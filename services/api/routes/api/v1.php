@@ -28,3 +28,4 @@ require app_path('Modules/AI/Http/routes.php');
 require app_path('Modules/Mentorship/Http/routes.php');
 require app_path('Modules/Onboarding/Http/routes.php');
 require app_path('Modules/Okrs/Http/routes.php');
+require app_path('Modules/Gamification/Http/routes.php');
