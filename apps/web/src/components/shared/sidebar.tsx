@@ -19,13 +19,16 @@ const NAV: NavItem[] = [
   { href: '/mi-dia', label: 'Inicio', icon: 'Home', roles: ['intern'] },
   { href: '/dashboard', label: 'Inicio', icon: 'Home', roles: ['tenant_admin', 'hr', 'team_lead', 'mentor', 'supervisor'] },
   { href: '/tareas', label: 'Tareas', icon: 'Tasks' },
+  { href: '/proyectos', label: 'Proyectos', icon: 'Panel' },
   { href: '/reportes-diarios', label: 'Bitácora', icon: 'Log' },
   { href: '/mentoria', label: 'Mentoría', icon: 'Mentor' },
   { href: '/evaluaciones', label: 'Evaluaciones', icon: 'Eval' },
+  { href: '/okrs', label: 'OKRs', icon: 'Flag' },
   { href: '/analitica', label: 'Analítica', icon: 'Analytics', roles: ['tenant_admin', 'hr', 'team_lead', 'supervisor'] },
   { href: '/onboarding', label: 'Onboarding', icon: 'Onboard' },
   { href: '/practicantes', label: 'Personas', icon: 'People', roles: ['tenant_admin', 'hr', 'team_lead'] },
   { href: '/automatizacion', label: 'Automatización', icon: 'Auto', roles: ['tenant_admin', 'hr'] },
+  { href: '/reportes', label: 'Reportes', icon: 'Download', roles: ['tenant_admin', 'hr', 'team_lead'] },
 ]
 
 const isItemForRole = (item: NavItem, role?: MembershipRole | null) => {
