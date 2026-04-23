@@ -2,11 +2,12 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Calendar, MessageSquare, Paperclip, Timer } from 'lucide-react'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { cn, initialsFromName } from '@/lib/utils'
-import { PRIORITY_COLORS } from '../lib/state-machine'
+import { Icon } from '@/components/ui/icon'
+import { PaperBadge, PriorityDot, TonalAvatar } from '@/components/ui/primitives'
+import { cn } from '@/lib/utils'
 import type { Task } from '@/types/api'
+
+const TAG_TONES = ['tag1', 'tag2', 'tag3', 'tag4'] as const
 
 interface TaskCardProps {
   task: Task
@@ -26,7 +27,11 @@ export function TaskCard({ task, onClick, draggable = true }: TaskCardProps) {
     transition,
   }
 
-  const overdue = task.is_overdue
+  const actualH = task.actual_minutes / 60
+  const estH = task.estimated_minutes ? task.estimated_minutes / 60 : 0
+  const progress = estH > 0 ? Math.min(100, (actualH / estH) * 100) : 0
+  const overEstimate = estH > 0 && actualH > estH
+  const tinyId = task.id.slice(0, 8).toUpperCase()
 
   return (
     <div
@@ -35,74 +40,60 @@ export function TaskCard({ task, onClick, draggable = true }: TaskCardProps) {
       {...(draggable ? { ...attributes, ...listeners } : {})}
       onClick={onClick}
       className={cn(
-        'rounded-md border bg-card p-3 shadow-sm cursor-pointer hover:border-primary/40 transition-colors',
-        isDragging && 'opacity-40 rotate-2',
-        overdue && 'border-destructive/40',
+        'cursor-grab rounded-md border border-paper-line bg-paper-raised p-2.5 shadow-paper-1 transition-colors',
+        'hover:border-paper-line-soft',
+        isDragging && 'opacity-40',
+        task.is_overdue && 'border-destructive/40',
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-medium leading-tight line-clamp-2">{task.title}</h3>
-        {task.priority !== 'normal' && (
-          <span
-            className={cn(
-              'shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border uppercase',
-              PRIORITY_COLORS[task.priority],
-            )}
-          >
-            {task.priority === 'urgent' ? '●' : task.priority === 'high' ? '▲' : '▼'}
-          </span>
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <PriorityDot p={(task.priority as any) ?? 'normal'} />
+        <span className="font-mono text-[10.5px] text-ink-3">T-{tinyId}</span>
+        {task.state === 'BLOCKED' && (
+          <PaperBadge tone="danger" className="ml-auto !text-[9px] !px-1.5">
+            BLOQUEADA
+          </PaperBadge>
         )}
       </div>
 
+      <div className="mb-2.5 text-[13px] leading-[1.4] text-ink line-clamp-2">{task.title}</div>
+
       {task.tags && task.tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {task.tags.slice(0, 3).map((t) => (
-            <span
-              key={t.id}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded-full border"
-              style={{ borderColor: t.color, color: t.color }}
-            >
-              {t.name}
-            </span>
+        <div className="mb-2.5 flex flex-wrap gap-1">
+          {task.tags.slice(0, 3).map((tag, i) => (
+            <PaperBadge key={tag.id} tone={TAG_TONES[i % TAG_TONES.length]} className="!text-[10px]">
+              {tag.name}
+            </PaperBadge>
           ))}
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-between gap-2 text-muted-foreground text-xs">
-        <div className="flex items-center gap-2">
-          {task.due_at && (
-            <span className={cn('flex items-center gap-1', overdue && 'text-destructive font-medium')}>
-              <Calendar className="h-3 w-3" />
-              {formatDueShort(task.due_at)}
-            </span>
-          )}
-          {(task.comment_count ?? 0) > 0 && (
-            <span className="flex items-center gap-0.5">
-              <MessageSquare className="h-3 w-3" />
-              {task.comment_count}
-            </span>
-          )}
-          {(task.attachment_count ?? 0) > 0 && (
-            <span className="flex items-center gap-0.5">
-              <Paperclip className="h-3 w-3" />
-              {task.attachment_count}
-            </span>
-          )}
-          {task.actual_minutes > 0 && (
-            <span className="flex items-center gap-0.5">
-              <Timer className="h-3 w-3" />
-              {Math.round(task.actual_minutes / 60 * 10) / 10}h
-            </span>
-          )}
+      {estH > 0 && (
+        <div className="mb-2 h-[3px] overflow-hidden rounded-full bg-paper-line-soft">
+          <div
+            className={cn('h-full', overEstimate ? 'bg-destructive' : 'bg-primary')}
+            style={{ width: `${progress}%` }}
+          />
         </div>
+      )}
 
-        {task.assignee && (
-          <Avatar className="h-6 w-6">
-            <AvatarImage src={task.assignee.avatar_url ?? undefined} alt={task.assignee.name ?? ''} />
-            <AvatarFallback className="text-[10px]">
-              {initialsFromName(task.assignee.name ?? task.assignee.email)}
-            </AvatarFallback>
-          </Avatar>
+      <div className="flex items-center gap-2 text-[11px] text-ink-3">
+        {task.assignee ? (
+          <TonalAvatar
+            size={20}
+            name={task.assignee.name ?? task.assignee.email}
+          />
+        ) : (
+          <div className="h-5 w-5 rounded-full border border-dashed border-paper-line" />
+        )}
+        <span className="ml-auto inline-flex items-center gap-1">
+          <Icon.Cal size={11} />
+          {task.due_at ? formatDueShort(task.due_at) : '—'}
+        </span>
+        {estH > 0 && (
+          <span className="font-mono">
+            {actualH.toFixed(1)}/{estH.toFixed(0)}h
+          </span>
         )}
       </div>
     </div>
