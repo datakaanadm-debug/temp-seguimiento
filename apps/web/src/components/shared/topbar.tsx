@@ -1,95 +1,159 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { Bell, LogOut, Menu, PanelLeftClose, User as UserIcon, Settings } from 'lucide-react'
+import { useRouter, usePathname } from 'next/navigation'
+import { Icon } from '@/components/ui/icon'
 import { useAuth } from '@/providers/auth-provider'
 import { useUiStore } from '@/lib/stores/ui-store'
 import { apiClient } from '@/lib/api-client'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { initialsFromName, cn } from '@/lib/utils'
 import { useConnectionStatus } from '@/hooks/use-connection-status'
+import { clearTenantSlug } from '@/lib/tenant'
+
+const ROUTE_LABELS: Record<string, string> = {
+  'mi-dia': 'Mi día',
+  dashboard: 'Inicio',
+  tareas: 'Tareas',
+  nueva: 'Nueva',
+  'reportes-diarios': 'Bitácora',
+  hoy: 'Hoy',
+  evaluaciones: 'Evaluaciones',
+  mentoria: 'Mentoría',
+  analitica: 'Analítica',
+  onboarding: 'Onboarding',
+  practicantes: 'Personas',
+  automatizacion: 'Automatización',
+  reportes: 'Reportes',
+  universidad: 'Universidad',
+  solicitar: 'Solicitar',
+  notificaciones: 'Notificaciones',
+  configuracion: 'Configuración',
+  perfil: 'Mi perfil',
+  equipo: 'Equipo',
+}
+
+function useBreadcrumbs() {
+  const pathname = usePathname()
+  const segs = pathname.split('/').filter(Boolean)
+  return segs.map((seg, i) => ({
+    label: ROUTE_LABELS[seg] ?? seg.charAt(0).toUpperCase() + seg.slice(1),
+    href: '/' + segs.slice(0, i + 1).join('/'),
+    last: i === segs.length - 1,
+  }))
+}
 
 export function Topbar() {
   const router = useRouter()
   const { user, tenant, setUser, setTenant } = useAuth()
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
-  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
+  const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen)
   const connectionStatus = useConnectionStatus()
+  const crumbs = useBreadcrumbs()
 
   const handleLogout = async () => {
-    try {
-      await apiClient.post('/api/v1/auth/logout')
-    } catch {
-      /* silencio */
-    }
+    try { await apiClient.post('/api/v1/auth/logout') } catch { /* noop */ }
+    clearTenantSlug()
     setUser(null)
     setTenant(null)
     router.push('/login')
   }
 
   return (
-    <header className="flex h-14 items-center border-b bg-card px-4 gap-3">
-      <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="Toggle sidebar">
-        {sidebarCollapsed ? <Menu className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-      </Button>
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-paper-line bg-paper-surface px-4">
+      <button
+        type="button"
+        onClick={toggleSidebar}
+        className="flex h-8 w-8 items-center justify-center rounded-md text-ink-3 hover:bg-paper-bg-2 hover:text-ink"
+        aria-label="Toggle sidebar"
+      >
+        <Icon.Panel size={16} />
+      </button>
 
-      <div className="flex-1" />
+      {/* Breadcrumbs */}
+      <nav className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-ink-3">
+        <Link href="/" className="hover:text-ink">{tenant?.name ?? 'Interna'}</Link>
+        {crumbs.map((c) => (
+          <span key={c.href} className="flex items-center gap-1.5">
+            <Icon.Chev size={11} className="text-ink-muted" />
+            {c.last ? (
+              <span className="truncate text-ink">{c.label}</span>
+            ) : (
+              <Link href={c.href} className="hover:text-ink">{c.label}</Link>
+            )}
+          </span>
+        ))}
+      </nav>
 
-      {/* Connection indicator */}
-      <ConnectionDot status={connectionStatus} />
+      <div className="ml-auto flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setCommandPaletteOpen(true)}
+          className="hidden md:flex h-8 items-center gap-2 rounded-md border border-paper-line bg-paper-raised px-2.5 text-[12px] text-ink-3 hover:border-paper-line-soft"
+        >
+          <Icon.Search size={12} />
+          <span>Buscar</span>
+          <kbd className="font-mono text-[10px]">⌘K</kbd>
+        </button>
 
-      {/* Notifications */}
-      <Button variant="ghost" size="icon" asChild>
-        <Link href="/notificaciones" aria-label="Notificaciones">
-          <Bell className="h-5 w-5" />
+        <ConnectionDot status={connectionStatus} />
+
+        <Link
+          href="/notificaciones"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-ink-3 hover:bg-paper-bg-2 hover:text-ink"
+          aria-label="Notificaciones"
+        >
+          <Icon.Bell size={15} />
         </Link>
-      </Button>
 
-      {/* User menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="gap-2 h-auto py-1.5 pr-3">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={user?.avatar_url ?? undefined} alt={user?.name ?? ''} />
-              <AvatarFallback>{initialsFromName(user?.name ?? user?.email ?? '?')}</AvatarFallback>
-            </Avatar>
-            <div className="hidden md:flex flex-col items-start">
-              <span className="text-xs font-medium leading-tight">{user?.name ?? user?.email}</span>
-              <span className="text-[10px] text-muted-foreground leading-tight">{user?.role_label}</span>
-            </div>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-60">
-          <DropdownMenuLabel>
-            <div className="text-xs text-muted-foreground">Sesión en</div>
-            <div className="text-sm font-semibold">{tenant?.name}</div>
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/configuracion/perfil">
-              <UserIcon className="h-4 w-4" />
-              Mi perfil
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/configuracion/notificaciones">
-              <Settings className="h-4 w-4" />
-              Preferencias
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout}>
-            <LogOut className="h-4 w-4" />
-            Cerrar sesión
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex h-8 items-center gap-2 rounded-md px-1.5 hover:bg-paper-bg-2"
+            >
+              <div
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+                style={{
+                  background: 'hsl(var(--accent-soft))',
+                  color: 'hsl(var(--accent-ink))',
+                  border: '1px solid hsl(var(--accent-h) / 0.3)',
+                }}
+              >
+                {initialsFromName(user?.name ?? user?.email ?? '?')}
+              </div>
+              <Icon.ChevDown size={11} className="text-ink-3" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-60">
+            <DropdownMenuLabel>
+              <div className="text-[11px] text-ink-3 font-mono uppercase tracking-wide">Sesión en</div>
+              <div className="text-[13px] font-semibold text-ink">{tenant?.name}</div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/configuracion/perfil" className="gap-2">
+                <Icon.People size={14} />
+                Mi perfil
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/configuracion/notificaciones" className="gap-2">
+                <Icon.Settings size={14} />
+                Preferencias
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout} className="gap-2">
+              <Icon.LogOut size={14} />
+              Cerrar sesión
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   )
 }
@@ -108,9 +172,8 @@ function ConnectionDot({ status }: { status: string }) {
     }
   })()
   return (
-    <span className="flex items-center gap-1.5 text-xs text-muted-foreground" title={label}>
+    <span className="hidden items-center gap-1.5 text-[11px] text-ink-3 md:flex" title={label}>
       <span className={cn('h-2 w-2 rounded-full', color)} />
-      <span className="hidden lg:inline">{label}</span>
     </span>
   )
 }

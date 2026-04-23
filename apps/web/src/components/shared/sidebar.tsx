@@ -2,83 +2,35 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  Home, CheckSquare, Calendar, BarChart3, Users, Target, Bell,
-  FolderKanban, FileText, GraduationCap, Settings, Command as CmdIcon, Plus,
-  Activity, UserCheck,
-} from 'lucide-react'
+import { Icon, type IconName } from '@/components/ui/icon'
 import { useAuth } from '@/providers/auth-provider'
 import { useUiStore } from '@/lib/stores/ui-store'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
+import { cn, initialsFromName } from '@/lib/utils'
 import type { MembershipRole } from '@/types/api'
 
 type NavItem = {
   href: string
   label: string
-  icon: React.ComponentType<{ className?: string }>
-  badge?: string
+  icon: IconName
+  roles?: MembershipRole[]
 }
 
-const sectionsForRole = (role: MembershipRole | null | undefined): { title: string; items: NavItem[] }[] => {
-  if (role === 'intern') {
-    return [
-      {
-        title: 'Principal',
-        items: [
-          { href: '/mi-dia', label: 'Mi día', icon: Home },
-          { href: '/tareas', label: 'Mis tareas', icon: CheckSquare },
-          { href: '/reportes-diarios/hoy', label: 'Reporte diario', icon: Activity },
-          { href: '/proyectos', label: 'Proyectos', icon: FolderKanban },
-        ],
-      },
-      {
-        title: 'Crecimiento',
-        items: [
-          { href: '/evaluaciones', label: 'Evaluaciones', icon: BarChart3 },
-          { href: '/reportes', label: 'Reportes', icon: FileText },
-        ],
-      },
-    ]
-  }
+const NAV: NavItem[] = [
+  { href: '/mi-dia', label: 'Inicio', icon: 'Home', roles: ['intern'] },
+  { href: '/dashboard', label: 'Inicio', icon: 'Home', roles: ['tenant_admin', 'hr', 'team_lead', 'mentor', 'supervisor'] },
+  { href: '/tareas', label: 'Tareas', icon: 'Tasks' },
+  { href: '/reportes-diarios', label: 'Bitácora', icon: 'Log' },
+  { href: '/mentoria', label: 'Mentoría', icon: 'Mentor' },
+  { href: '/evaluaciones', label: 'Evaluaciones', icon: 'Eval' },
+  { href: '/analitica', label: 'Analítica', icon: 'Analytics', roles: ['tenant_admin', 'hr', 'team_lead', 'supervisor'] },
+  { href: '/onboarding', label: 'Onboarding', icon: 'Onboard' },
+  { href: '/practicantes', label: 'Personas', icon: 'People', roles: ['tenant_admin', 'hr', 'team_lead'] },
+  { href: '/automatizacion', label: 'Automatización', icon: 'Auto', roles: ['tenant_admin', 'hr'] },
+]
 
-  // Lead / HR / Mentor / Admin
-  return [
-    {
-      title: 'Visión',
-      items: [
-        { href: '/dashboard', label: 'Dashboard', icon: Home },
-        { href: '/practicantes', label: 'Practicantes', icon: Users },
-      ],
-    },
-    {
-      title: 'Operación',
-      items: [
-        { href: '/tareas', label: 'Tareas', icon: CheckSquare },
-        { href: '/proyectos', label: 'Proyectos', icon: FolderKanban },
-        { href: '/reportes-diarios', label: 'Reportes diarios', icon: Activity },
-      ],
-    },
-    {
-      title: 'Desempeño',
-      items: [
-        { href: '/evaluaciones', label: 'Evaluaciones', icon: Target },
-        { href: '/reportes', label: 'Reportes', icon: FileText },
-        { href: '/reportes/universidad/solicitar', label: 'Reporte universidad', icon: GraduationCap },
-      ],
-    },
-    ...(role === 'tenant_admin' || role === 'hr'
-      ? [{
-          title: 'Configuración',
-          items: [
-            { href: '/configuracion/equipo', label: 'Equipo', icon: UserCheck },
-            { href: '/configuracion/scorecards', label: 'Scorecards', icon: BarChart3 },
-            { href: '/configuracion/templates-reportes', label: 'Templates', icon: FileText },
-          ],
-        }]
-      : []),
-  ]
+const isItemForRole = (item: NavItem, role?: MembershipRole | null) => {
+  if (!item.roles) return true
+  return role ? item.roles.includes(role) : false
 }
 
 export function Sidebar() {
@@ -86,98 +38,121 @@ export function Sidebar() {
   const { user, tenant } = useAuth()
   const collapsed = useUiStore((s) => s.sidebarCollapsed)
   const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen)
-  const sections = sectionsForRole(user?.role)
+
+  const nav = NAV.filter((item) => isItemForRole(item, user?.role))
 
   return (
     <aside
       className={cn(
-        'flex flex-col border-r bg-card transition-[width] duration-200',
-        collapsed ? 'w-16' : 'w-60',
+        'flex flex-col border-r border-paper-line bg-paper-surface transition-[width] duration-200',
+        collapsed ? 'w-[72px]' : 'w-[248px]',
       )}
     >
       {/* Brand */}
-      <div className="flex h-14 items-center px-4 border-b">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
-            i
+      <div className="flex h-14 items-center gap-2.5 border-b border-paper-line-soft px-4">
+        <div
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink text-paper-surface font-serif italic"
+          style={{ fontSize: 15, lineHeight: 1 }}
+          aria-hidden
+        >
+          i
+        </div>
+        {!collapsed && (
+          <div className="min-w-0">
+            <div className="truncate text-[13px] font-semibold text-ink">
+              {tenant?.name ?? 'Interna'}
+            </div>
+            <div className="text-[10px] uppercase tracking-[0.6px] text-ink-3 font-mono">
+              {tenant?.plan ?? 'workspace'}
+            </div>
           </div>
-          {!collapsed && <span className="truncate">{tenant?.name ?? 'Interna'}</span>}
+        )}
+      </div>
+
+      {/* Search + new */}
+      <div className="flex flex-col gap-1.5 px-3 pt-3">
+        <button
+          type="button"
+          onClick={() => setCommandPaletteOpen(true)}
+          className={cn(
+            'flex h-9 items-center gap-2 rounded-md border border-paper-line bg-paper-raised px-2.5 text-[13px] text-ink-3 transition hover:border-paper-line-soft hover:bg-paper-surface',
+            collapsed ? 'justify-center' : 'justify-between',
+          )}
+        >
+          <span className="flex items-center gap-2">
+            <Icon.Search size={14} />
+            {!collapsed && <span>Buscar o saltar</span>}
+          </span>
+          {!collapsed && (
+            <kbd className="font-mono text-[10px] text-ink-3">⌘K</kbd>
+          )}
+        </button>
+        <Link
+          href="/tareas/nueva"
+          className={cn(
+            'flex h-9 items-center gap-2 rounded-md bg-ink px-2.5 text-[13px] font-medium text-paper-surface transition hover:bg-ink-2',
+            collapsed ? 'justify-center' : 'justify-start',
+          )}
+        >
+          <Icon.Plus size={14} />
+          {!collapsed && <span>Nueva tarea</span>}
         </Link>
       </div>
 
-      {/* Actions */}
-      <div className="px-2 py-3 space-y-1">
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn('w-full justify-start gap-2', collapsed && 'justify-center')}
-          onClick={() => setCommandPaletteOpen(true)}
-        >
-          <CmdIcon className="h-4 w-4" />
-          {!collapsed && (
-            <>
-              <span className="text-muted-foreground">Buscar…</span>
-              <kbd className="ml-auto text-[10px] text-muted-foreground">⌘K</kbd>
-            </>
-          )}
-        </Button>
-        <Button size="sm" className={cn('w-full justify-start gap-2', collapsed && 'justify-center')} asChild>
-          <Link href="/tareas/nueva">
-            <Plus className="h-4 w-4" />
-            {!collapsed && <span>Nueva tarea</span>}
-          </Link>
-        </Button>
-      </div>
-
-      <Separator />
-
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
-        {sections.map((section, i) => (
-          <div key={section.title} className={cn(i > 0 && 'mt-4')}>
-            {!collapsed && (
-              <div className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {section.title}
-              </div>
-            )}
-            <ul className="space-y-0.5">
-              {section.items.map(({ href, label, icon: Icon }) => {
-                const active = pathname === href || pathname.startsWith(href + '/')
-                return (
-                  <li key={href}>
-                    <Link
-                      href={href}
-                      className={cn(
-                        'flex items-center gap-3 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                        active
-                          ? 'bg-primary/10 text-primary'
-                          : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
-                        collapsed && 'justify-center',
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {!collapsed && <span className="truncate">{label}</span>}
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        ))}
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <ul className="space-y-0.5">
+          {nav.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(item.href + '/')
+            const IconC = Icon[item.icon]
+            return (
+              <li key={item.href}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    'group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors',
+                    active
+                      ? 'bg-primary-soft text-primary-ink font-medium'
+                      : 'text-ink-2 hover:bg-paper-bg-2',
+                    collapsed && 'justify-center px-0',
+                  )}
+                >
+                  <IconC size={15} className="shrink-0" />
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
       </nav>
 
-      {/* Notifications link */}
-      <Separator />
-      <div className="p-2">
+      {/* User chip at bottom */}
+      <div className="border-t border-paper-line-soft p-3">
         <Link
-          href="/notificaciones"
+          href="/configuracion/perfil"
           className={cn(
-            'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent',
-            collapsed && 'justify-center',
+            'flex items-center gap-2.5 rounded-md px-2 py-2 transition hover:bg-paper-bg-2',
+            collapsed && 'justify-center px-0',
           )}
         >
-          <Bell className="h-4 w-4" />
-          {!collapsed && <span>Notificaciones</span>}
+          <div
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+            style={{
+              background: 'hsl(var(--accent-soft))',
+              color: 'hsl(var(--accent-ink))',
+              border: '1px solid hsl(var(--accent-h) / 0.3)',
+            }}
+          >
+            {initialsFromName(user?.name ?? user?.email ?? '?')}
+          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[12px] font-medium text-ink">
+                {user?.name ?? user?.email}
+              </div>
+              <div className="truncate text-[10px] text-ink-3">{user?.role_label}</div>
+            </div>
+          )}
         </Link>
       </div>
     </aside>

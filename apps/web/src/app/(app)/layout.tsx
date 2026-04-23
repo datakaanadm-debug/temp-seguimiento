@@ -12,12 +12,12 @@ export default async function AppShellLayout({ children }: { children: React.Rea
   return (
     <AuthProvider initialUser={user} initialTenant={tenant}>
       <RealtimeProvider>
-        <div className="flex h-dvh overflow-hidden">
+        <div className="flex h-dvh overflow-hidden bg-paper">
           <Sidebar />
-          <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <Topbar />
             <OfflineBanner />
-            <main className="flex-1 overflow-y-auto bg-background">
+            <main className="flex-1 overflow-y-auto">
               {children}
             </main>
           </div>
