@@ -3,21 +3,23 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Command } from 'cmdk'
-import {
-  Home, CheckSquare, Users, BarChart3, FileText, GraduationCap, Plus, Activity,
-  Bell, FolderKanban,
-} from 'lucide-react'
+import { Icon, type IconName } from '@/components/ui/icon'
+import { Kbd } from '@/components/ui/primitives'
 import { useUiStore } from '@/lib/stores/ui-store'
 import { useAuth } from '@/providers/auth-provider'
 import { cn } from '@/lib/utils'
 
+type Section = 'Acciones rápidas' | 'Ir a' | 'Herramientas'
+
 type Cmd = {
   id: string
   label: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: IconName
   action: () => void
-  keywords?: string[]
-  section: 'acciones' | 'ir a'
+  keywords?: string
+  section: Section
+  shortcut?: string[]
+  hint?: string
 }
 
 export function CommandPalette() {
@@ -32,6 +34,9 @@ export function CommandPalette() {
         e.preventDefault()
         setOpen(!open)
       }
+      if (e.key === 'Escape' && open) {
+        setOpen(false)
+      }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -39,40 +44,168 @@ export function CommandPalette() {
 
   const run = (fn: () => void) => {
     setOpen(false)
-    fn()
+    // small timeout para que cmdk cierre antes de navegar
+    setTimeout(fn, 10)
   }
 
+  const homeHref = user?.role === 'intern' ? '/mi-dia' : '/dashboard'
+  const homeLabel = user?.role === 'intern' ? 'Mi día' : 'Inicio'
+
   const commands: Cmd[] = [
+    // Acciones rápidas
     {
       id: 'new-task',
       label: 'Nueva tarea',
-      icon: Plus,
+      icon: 'Plus',
       action: () => run(() => router.push('/tareas/nueva')),
-      keywords: ['crear', 'tarea', 'nueva'],
-      section: 'acciones',
+      keywords: 'crear tarea nueva add create',
+      section: 'Acciones rápidas',
+      shortcut: ['N', 'T'],
     },
     {
       id: 'new-daily',
-      label: 'Enviar reporte diario',
-      icon: Activity,
+      label: 'Reportar mi día',
+      icon: 'Log',
       action: () => run(() => router.push('/reportes-diarios/hoy')),
-      keywords: ['reporte', 'diario', 'bitácora'],
-      section: 'acciones',
+      keywords: 'reporte diario bitácora standup',
+      section: 'Acciones rápidas',
+      shortcut: ['R'],
     },
     {
-      id: 'go-home',
-      label: user?.role === 'intern' ? 'Mi día' : 'Dashboard',
-      icon: Home,
-      action: () => run(() => router.push(user?.role === 'intern' ? '/mi-dia' : '/dashboard')),
-      section: 'ir a',
+      id: 'start-timer',
+      label: 'Iniciar timer en una tarea',
+      icon: 'Clock',
+      action: () => run(() => router.push('/tareas?view=list&mine=true')),
+      keywords: 'timer tiempo start play',
+      section: 'Acciones rápidas',
     },
-    { id: 'go-tasks', label: 'Tareas', icon: CheckSquare, action: () => run(() => router.push('/tareas')), section: 'ir a' },
-    { id: 'go-projects', label: 'Proyectos', icon: FolderKanban, action: () => run(() => router.push('/proyectos')), section: 'ir a' },
-    { id: 'go-interns', label: 'Practicantes', icon: Users, action: () => run(() => router.push('/practicantes')), section: 'ir a' },
-    { id: 'go-evaluations', label: 'Evaluaciones', icon: BarChart3, action: () => run(() => router.push('/evaluaciones')), section: 'ir a' },
-    { id: 'go-reports', label: 'Reportes', icon: FileText, action: () => run(() => router.push('/reportes')), section: 'ir a' },
-    { id: 'go-university', label: 'Reporte de universidad', icon: GraduationCap, action: () => run(() => router.push('/reportes/universidad/solicitar')), section: 'ir a' },
-    { id: 'go-notifs', label: 'Notificaciones', icon: Bell, action: () => run(() => router.push('/notificaciones')), section: 'ir a' },
+    {
+      id: 'new-evaluation',
+      label: 'Nueva evaluación',
+      icon: 'Eval',
+      action: () => run(() => router.push('/evaluaciones?new=true')),
+      keywords: 'evaluación scorecard performance',
+      section: 'Acciones rápidas',
+    },
+
+    // Ir a
+    {
+      id: 'go-home',
+      label: homeLabel,
+      icon: 'Home',
+      action: () => run(() => router.push(homeHref)),
+      section: 'Ir a',
+      shortcut: ['G', 'H'],
+    },
+    {
+      id: 'go-tasks',
+      label: 'Tareas',
+      icon: 'Tasks',
+      action: () => run(() => router.push('/tareas')),
+      section: 'Ir a',
+      shortcut: ['G', 'T'],
+    },
+    {
+      id: 'go-tasks-kanban',
+      label: 'Tareas · vista Kanban',
+      icon: 'Panel',
+      action: () => run(() => router.push('/tareas?view=kanban')),
+      keywords: 'tablero board kanban',
+      section: 'Ir a',
+    },
+    {
+      id: 'go-tasks-cal',
+      label: 'Tareas · vista Calendario',
+      icon: 'Cal',
+      action: () => run(() => router.push('/tareas?view=cal')),
+      keywords: 'calendario fechas',
+      section: 'Ir a',
+    },
+    {
+      id: 'go-log',
+      label: 'Bitácora',
+      icon: 'Log',
+      action: () => run(() => router.push('/reportes-diarios')),
+      section: 'Ir a',
+      shortcut: ['G', 'B'],
+    },
+    {
+      id: 'go-mentor',
+      label: 'Mentoría',
+      icon: 'Mentor',
+      action: () => run(() => router.push('/mentoria')),
+      section: 'Ir a',
+    },
+    {
+      id: 'go-evaluations',
+      label: 'Evaluaciones',
+      icon: 'Eval',
+      action: () => run(() => router.push('/evaluaciones')),
+      section: 'Ir a',
+      shortcut: ['G', 'E'],
+    },
+    {
+      id: 'go-people',
+      label: 'Personas / Practicantes',
+      icon: 'People',
+      action: () => run(() => router.push('/practicantes')),
+      keywords: 'personas equipo practicantes',
+      section: 'Ir a',
+    },
+    {
+      id: 'go-analytics',
+      label: 'Analítica',
+      icon: 'Analytics',
+      action: () => run(() => router.push('/analitica')),
+      keywords: 'analytics métricas',
+      section: 'Ir a',
+    },
+    {
+      id: 'go-reports',
+      label: 'Reportes',
+      icon: 'Log',
+      action: () => run(() => router.push('/reportes')),
+      section: 'Ir a',
+    },
+    {
+      id: 'go-university',
+      label: 'Reporte de universidad',
+      icon: 'Log',
+      action: () => run(() => router.push('/reportes/universidad/solicitar')),
+      keywords: 'universidad académico',
+      section: 'Ir a',
+    },
+    {
+      id: 'go-auto',
+      label: 'Automatización',
+      icon: 'Auto',
+      action: () => run(() => router.push('/automatizacion')),
+      keywords: 'workflow rules zapier',
+      section: 'Ir a',
+    },
+
+    // Herramientas
+    {
+      id: 'notifs',
+      label: 'Ver notificaciones',
+      icon: 'Bell',
+      action: () => run(() => router.push('/notificaciones')),
+      section: 'Herramientas',
+    },
+    {
+      id: 'profile',
+      label: 'Mi perfil',
+      icon: 'People',
+      action: () => run(() => router.push('/configuracion/perfil')),
+      section: 'Herramientas',
+    },
+    {
+      id: 'settings',
+      label: 'Configuración del equipo',
+      icon: 'Settings',
+      action: () => run(() => router.push('/configuracion/equipo')),
+      section: 'Herramientas',
+    },
   ]
 
   const grouped: Record<string, Cmd[]> = {}
@@ -82,47 +215,84 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 animate-fade-in"
+      className="fixed inset-0 z-50 animate-fade-in bg-ink/50 backdrop-blur-sm"
       onClick={() => setOpen(false)}
       role="dialog"
       aria-modal="true"
     >
       <Command
-        className="mx-auto mt-[10vh] w-full max-w-xl rounded-lg border bg-popover text-popover-foreground shadow-xl overflow-hidden"
+        className="mx-auto mt-[12vh] w-full max-w-[640px] overflow-hidden rounded-xl border border-paper-line bg-paper-raised shadow-paper-3"
         onClick={(e) => e.stopPropagation()}
-        label="Command menu"
+        label="Paleta de comandos"
+        loop
       >
-        <Command.Input
-          placeholder="Buscar acciones o páginas…"
-          className="w-full px-4 py-3 text-sm border-b outline-none bg-transparent"
-        />
-        <Command.List className="max-h-[400px] overflow-y-auto p-2">
-          <Command.Empty className="py-8 text-center text-sm text-muted-foreground">
-            Sin resultados.
+        <div className="flex items-center gap-3 border-b border-paper-line-soft px-4 py-3">
+          <Icon.Search size={15} className="text-ink-3" />
+          <Command.Input
+            placeholder="Escribe un comando o busca…"
+            className="flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink-3"
+            autoFocus
+          />
+          <Kbd>ESC</Kbd>
+        </div>
+
+        <Command.List className="max-h-[420px] overflow-y-auto p-2">
+          <Command.Empty className="py-10 text-center text-[13px] text-ink-3">
+            Sin resultados. Intenta otra palabra.
           </Command.Empty>
+
           {Object.entries(grouped).map(([section, items]) => (
             <Command.Group
               key={section}
               heading={section}
-              className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1.5"
+              className="px-1.5 pt-2 font-mono text-[10px] font-semibold uppercase tracking-[0.6px] text-ink-3 first:pt-0 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1"
             >
-              {items.map((c) => (
-                <Command.Item
-                  key={c.id}
-                  onSelect={c.action}
-                  value={`${c.label} ${(c.keywords ?? []).join(' ')}`}
-                  className={cn(
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm cursor-pointer',
-                    'aria-selected:bg-accent aria-selected:text-accent-foreground',
-                  )}
-                >
-                  <c.icon className="h-4 w-4 text-muted-foreground" />
-                  <span>{c.label}</span>
-                </Command.Item>
-              ))}
+              {items.map((c) => {
+                const IconC = Icon[c.icon]
+                return (
+                  <Command.Item
+                    key={c.id}
+                    onSelect={c.action}
+                    value={`${c.label} ${c.keywords ?? ''}`}
+                    className={cn(
+                      'flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-[13px] text-ink',
+                      'aria-selected:bg-primary-soft aria-selected:text-primary-ink',
+                    )}
+                  >
+                    <IconC size={15} className="shrink-0 text-ink-3 aria-selected:text-primary-ink" />
+                    <span className="flex-1">{c.label}</span>
+                    {c.shortcut && (
+                      <span className="flex items-center gap-1">
+                        {c.shortcut.map((k) => (
+                          <Kbd key={k}>{k}</Kbd>
+                        ))}
+                      </span>
+                    )}
+                  </Command.Item>
+                )
+              })}
             </Command.Group>
           ))}
         </Command.List>
+
+        <div className="flex items-center justify-between border-t border-paper-line-soft px-4 py-2 text-[11px] text-ink-3">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <Kbd>↑</Kbd>
+              <Kbd>↓</Kbd>
+              Navegar
+            </span>
+            <span className="flex items-center gap-1">
+              <Kbd>↵</Kbd>
+              Seleccionar
+            </span>
+          </div>
+          <span className="flex items-center gap-1 font-mono">
+            <Kbd>⌘</Kbd>
+            <Kbd>K</Kbd>
+            para abrir
+          </span>
+        </div>
       </Command>
     </div>
   )
