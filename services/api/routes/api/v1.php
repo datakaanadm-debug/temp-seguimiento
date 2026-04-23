@@ -25,3 +25,4 @@ require app_path('Modules/Notifications/Http/routes.php');
 require app_path('Modules/Performance/Http/routes.php');
 require app_path('Modules/Reports/Http/routes.php');
 require app_path('Modules/AI/Http/routes.php');
+require app_path('Modules/Mentorship/Http/routes.php');
