@@ -1,87 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
-import {
-  SectionTitle, PaperCard, PaperBadge, TonalAvatar,
-} from '@/components/ui/primitives'
+import { SectionTitle, PaperCard, PaperBadge } from '@/components/ui/primitives'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-
-// Mock mientras no exista el módulo OKRs en backend.
-// Estructura data-driven lista para conectar a /api/v1/okrs cuando exista.
-
-type KR = {
-  id: string
-  text: string
-  progress: number
-  confidence: number // 0-10
-  owner?: string
-}
-
-type Objective = {
-  id: string
-  level: 'company' | 'team' | 'individual'
-  label: string
-  owner: string
-  quarter: string
-  krs: KR[]
-  children?: string[] // ids de objectivos hijo
-}
-
-const OBJECTIVES: Objective[] = [
-  {
-    id: 'o1',
-    level: 'company',
-    label: 'Consolidar Interna como la plataforma #1 de gestión de practicantes en LATAM',
-    owner: 'Acme Tech',
-    quarter: 'Q2 2026',
-    krs: [
-      { id: 'kr1', text: 'Alcanzar 30 empresas cliente activas', progress: 42, confidence: 6 },
-      { id: 'kr2', text: 'NPS del programa > 55 pts', progress: 78, confidence: 9 },
-      { id: 'kr3', text: '85% retención trimestral de empresas', progress: 60, confidence: 7 },
-    ],
-    children: ['o2', 'o3'],
-  },
-  {
-    id: 'o2',
-    level: 'team',
-    label: 'Elevar la experiencia del producto — equipo Diseño',
-    owner: 'Equipo Diseño',
-    quarter: 'Q2 2026',
-    krs: [
-      { id: 'kr4', text: 'Reducir tareas de fricción en onboarding de 7 a 3', progress: 55, confidence: 7 },
-      { id: 'kr5', text: 'Publicar design system v2 con 40+ componentes', progress: 30, confidence: 5 },
-      { id: 'kr6', text: 'Co-facilitar 3 workshops con Producto', progress: 66, confidence: 8 },
-    ],
-    children: ['o4'],
-  },
-  {
-    id: 'o3',
-    level: 'team',
-    label: 'Reducir bloqueos y fricción operativa — equipo Ingeniería',
-    owner: 'Equipo Ingeniería',
-    quarter: 'Q2 2026',
-    krs: [
-      { id: 'kr7', text: 'Disminuir tiempo medio de merge de 2d a 8h', progress: 70, confidence: 8 },
-      { id: 'kr8', text: 'Cero incidentes en producción > P2', progress: 100, confidence: 10 },
-      { id: 'kr9', text: 'Migración de auth legacy completada', progress: 20, confidence: 4 },
-    ],
-    children: [],
-  },
-  {
-    id: 'o4',
-    level: 'individual',
-    label: 'Elevar consistencia visual del producto',
-    owner: 'Valentina Cruz',
-    quarter: 'Q2 2026',
-    krs: [
-      { id: 'kr10', text: 'Auditar 100% de componentes críticos', progress: 90, confidence: 9 },
-      { id: 'kr11', text: 'Proponer 3 mejoras priorizadas', progress: 66, confidence: 7 },
-      { id: 'kr12', text: 'Implementar 1 mejora end-to-end', progress: 30, confidence: 5 },
-    ],
-    children: [],
-  },
-]
+import {
+  listObjectives, checkInKeyResult,
+  type Objective,
+} from '@/features/okrs/api/okrs'
 
 const VIEWS = [
   { id: 'mine', label: 'Los míos' },
@@ -93,16 +22,26 @@ type View = (typeof VIEWS)[number]['id']
 export default function OkrsPage() {
   const [view, setView] = useState<View>('mine')
 
-  const mine = OBJECTIVES.filter((o) => o.level === 'individual')
-  const team = OBJECTIVES.filter((o) => o.level === 'team')
-  const company = OBJECTIVES.filter((o) => o.level === 'company')
+  const { data, isLoading } = useQuery({
+    queryKey: ['okrs-all'],
+    queryFn: () => listObjectives({}),
+  })
+  const objectives = data?.data ?? []
+
+  const mine = objectives.filter((o) => o.level === 'individual')
+  const team = objectives.filter((o) => o.level === 'team')
+  const company = objectives.filter((o) => o.level === 'company')
 
   return (
     <div className="mx-auto max-w-[1200px] px-7 py-5 pb-10">
       <SectionTitle
-        kicker="Objetivos · Q2 2026"
+        kicker={`Objetivos · ${company[0]?.quarter ?? 'Q2 2026'}`}
         title="Objetivos y resultados clave (OKRs)"
-        sub={`${company.length} de empresa · ${team.length} de equipo · ${mine.length} individuales · check-in semanal los viernes`}
+        sub={
+          isLoading
+            ? 'Cargando…'
+            : `${company.length} de empresa · ${team.length} de equipo · ${mine.length} individuales`
+        }
         right={
           <>
             <div className="inline-flex rounded-md border border-paper-line bg-paper-raised p-0.5">
@@ -130,13 +69,19 @@ export default function OkrsPage() {
         }
       />
 
-      {view === 'tree' ? (
-        <AlignmentTree objectives={OBJECTIVES} />
+      {isLoading ? (
+        <Skeleton className="h-96 w-full" />
+      ) : view === 'tree' ? (
+        <AlignmentTree objectives={objectives} />
       ) : (
         <div className="flex flex-col gap-4">
-          {(view === 'mine' ? mine : team).map((o) => (
-            <ObjectiveCard key={o.id} objective={o} />
-          ))}
+          {(view === 'mine' ? mine : team).length === 0 ? (
+            <div className="rounded-lg border border-dashed border-paper-line bg-paper-surface p-12 text-center text-[13px] text-ink-3">
+              Sin objetivos {view === 'mine' ? 'individuales' : 'de equipo'} para este trimestre.
+            </div>
+          ) : (
+            (view === 'mine' ? mine : team).map((o) => <ObjectiveCard key={o.id} objective={o} />)
+          )}
         </div>
       )}
     </div>
@@ -144,9 +89,45 @@ export default function OkrsPage() {
 }
 
 function ObjectiveCard({ objective }: { objective: Objective }) {
-  const avg = objective.krs.reduce((a, k) => a + k.progress, 0) / Math.max(1, objective.krs.length)
-  const conf = objective.krs.reduce((a, k) => a + k.confidence, 0) / Math.max(1, objective.krs.length)
+  const qc = useQueryClient()
+  const avg = useMemo(
+    () =>
+      objective.key_results.length
+        ? objective.key_results.reduce((a, k) => a + k.progress_percent, 0) / objective.key_results.length
+        : 0,
+    [objective.key_results],
+  )
+  const conf = useMemo(
+    () =>
+      objective.key_results.length
+        ? objective.key_results.reduce((a, k) => a + k.confidence, 0) / objective.key_results.length
+        : 0,
+    [objective.key_results],
+  )
   const levelTone = { company: 'ok', team: 'accent', individual: 'info' } as const
+
+  const checkIn = useMutation({
+    mutationFn: (input: { krId: string; newProgress: number; newConfidence: number }) =>
+      checkInKeyResult(input.krId, {
+        new_progress: input.newProgress,
+        new_confidence: input.newConfidence,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['okrs-all'] })
+      toast.success('Check-in registrado')
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'Error'),
+  })
+
+  const onCheckIn = (krId: string, currentProgress: number, currentConfidence: number) => {
+    const raw = prompt(`Nuevo progreso % (0-100). Actual: ${currentProgress}%`, String(currentProgress))
+    if (raw === null) return
+    const newProgress = Math.max(0, Math.min(100, parseInt(raw, 10) || 0))
+    const rawConf = prompt(`Confianza 0-10. Actual: ${currentConfidence}`, String(currentConfidence))
+    if (rawConf === null) return
+    const newConfidence = Math.max(0, Math.min(10, parseInt(rawConf, 10) || 0))
+    checkIn.mutate({ krId, newProgress, newConfidence })
+  }
 
   return (
     <PaperCard>
@@ -157,7 +138,9 @@ function ObjectiveCard({ objective }: { objective: Objective }) {
               {objective.level === 'company' ? 'EMPRESA' : objective.level === 'team' ? 'EQUIPO' : 'INDIVIDUAL'}
             </PaperBadge>
             <span className="font-mono text-[11px] text-ink-3">{objective.quarter}</span>
-            <span className="ml-auto font-mono text-[11px] text-ink-3">{objective.owner}</span>
+            <span className="ml-auto font-mono text-[11px] text-ink-3">
+              {objective.owner_name ?? objective.owner_type}
+            </span>
           </div>
           <div className="font-serif text-[17px] leading-tight tracking-tight text-ink">
             {objective.label}
@@ -175,7 +158,8 @@ function ObjectiveCard({ objective }: { objective: Objective }) {
             <div className="text-right">
               <div className="font-mono text-[10px] uppercase text-ink-3">Confianza</div>
               <div className="font-serif text-[18px] leading-none text-ink">
-                {conf.toFixed(1)}<span className="text-[11px] text-ink-3">/10</span>
+                {conf.toFixed(1)}
+                <span className="text-[11px] text-ink-3">/10</span>
               </div>
             </div>
           </div>
@@ -183,20 +167,26 @@ function ObjectiveCard({ objective }: { objective: Objective }) {
       </div>
 
       <div className="mt-4 space-y-2.5 border-t border-paper-line-soft pt-3">
-        {objective.krs.map((k, i) => (
+        {objective.key_results.map((k, i) => (
           <div key={k.id}>
             <div className="mb-1 flex items-center gap-2 text-[12.5px]">
-              <span className="font-mono text-[11px] font-semibold text-primary">
-                KR{i + 1}
-              </span>
+              <span className="font-mono text-[11px] font-semibold text-primary">KR{i + 1}</span>
               <span className="flex-1 text-ink-2">{k.text}</span>
-              <span className="font-mono text-[11px] text-ink-3">{k.progress}%</span>
+              <button
+                type="button"
+                onClick={() => onCheckIn(k.id, k.progress_percent, k.confidence)}
+                disabled={checkIn.isPending}
+                className="rounded font-mono text-[11px] text-ink-3 hover:text-ink disabled:opacity-50"
+                title="Actualizar progreso"
+              >
+                {k.progress_percent}%
+              </button>
             </div>
             <div className="h-[3px] overflow-hidden rounded-full bg-paper-line-soft">
               <div
                 className="h-full rounded-full"
                 style={{
-                  width: `${k.progress}%`,
+                  width: `${k.progress_percent}%`,
                   background:
                     k.confidence >= 7
                       ? 'hsl(var(--ok))'
@@ -209,15 +199,6 @@ function ObjectiveCard({ objective }: { objective: Objective }) {
           </div>
         ))}
       </div>
-
-      <div className="mt-3 flex items-center gap-2 border-t border-paper-line-soft pt-3 text-[11px] text-ink-3">
-        <Icon.Cal size={11} />
-        Último check-in: viernes pasado
-        <button className="ml-auto inline-flex items-center gap-1 rounded-md border border-paper-line bg-paper-raised px-2 py-1 text-[11px] font-medium text-ink-2 hover:border-paper-line-soft">
-          <Icon.Plus size={10} />
-          Check-in
-        </button>
-      </div>
     </PaperCard>
   )
 }
@@ -226,14 +207,22 @@ function AlignmentTree({ objectives }: { objectives: Objective[] }) {
   const byId = new Map(objectives.map((o) => [o.id, o] as const))
   const roots = objectives.filter((o) => o.level === 'company')
 
+  if (roots.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-paper-line bg-paper-surface p-12 text-center text-[13px] text-ink-3">
+        Sin objetivos de empresa definidos para mostrar el árbol.
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-lg border border-paper-line bg-paper-raised p-5 shadow-paper-1">
       <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.6px] text-ink-3">
-        Árbol de alineación · Q2 2026
+        Árbol de alineación
       </div>
       <div className="flex flex-col gap-5">
         {roots.map((r) => (
-          <TreeNode key={r.id} node={r} byId={byId} depth={0} />
+          <TreeNode key={r.id} node={r} all={objectives} byId={byId} depth={0} />
         ))}
       </div>
     </div>
@@ -242,21 +231,28 @@ function AlignmentTree({ objectives }: { objectives: Objective[] }) {
 
 function TreeNode({
   node,
+  all,
   byId,
   depth,
 }: {
   node: Objective
+  all: Objective[]
   byId: Map<string, Objective>
   depth: number
 }) {
-  const avg = node.krs.reduce((a, k) => a + k.progress, 0) / Math.max(1, node.krs.length)
-  const levelLabel = node.level === 'company' ? 'EMPRESA' : node.level === 'team' ? 'EQUIPO' : 'INDIVIDUAL'
+  const avg = node.key_results.length
+    ? node.key_results.reduce((a, k) => a + k.progress_percent, 0) / node.key_results.length
+    : 0
+  const levelLabel =
+    node.level === 'company' ? 'EMPRESA' : node.level === 'team' ? 'EQUIPO' : 'INDIVIDUAL'
   const levelColor =
     node.level === 'company'
       ? 'hsl(var(--ok))'
       : node.level === 'team'
         ? 'hsl(var(--accent-h))'
         : 'hsl(var(--info))'
+
+  const children = all.filter((o) => o.parent_objective_id === node.id)
 
   return (
     <div className="relative flex flex-col gap-3" style={{ paddingLeft: depth * 28 }}>
@@ -286,7 +282,9 @@ function TreeNode({
             >
               {levelLabel}
             </span>
-            <span className="font-mono text-[10.5px] text-ink-3">{node.owner}</span>
+            <span className="font-mono text-[10.5px] text-ink-3">
+              {node.owner_name ?? node.owner_type}
+            </span>
           </div>
           <div className="font-serif text-[15px] leading-tight text-ink">{node.label}</div>
           <div className="mt-2 flex items-center gap-2.5">
@@ -301,13 +299,11 @@ function TreeNode({
         </div>
       </div>
 
-      {node.children && node.children.length > 0 && (
+      {children.length > 0 && (
         <div className="flex flex-col gap-3">
-          {node.children.map((cid) => {
-            const child = byId.get(cid)
-            if (!child) return null
-            return <TreeNode key={cid} node={child} byId={byId} depth={depth + 1} />
-          })}
+          {children.map((c) => (
+            <TreeNode key={c.id} node={c} all={all} byId={byId} depth={depth + 1} />
+          ))}
         </div>
       )}
     </div>
