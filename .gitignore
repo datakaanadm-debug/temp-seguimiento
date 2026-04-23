@@ -1,0 +1,80 @@
+# ── Environment & secrets ───────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+*.pem
+*.key
+*.p12
+
+# ── PHP / Laravel (services/api) ────────────────────────────────────────
+/services/api/vendor/
+/services/api/node_modules/
+/services/api/public/storage
+/services/api/public/hot
+/services/api/storage/*.key
+/services/api/storage/app/*
+!/services/api/storage/app/.gitkeep
+/services/api/storage/app/public/*
+!/services/api/storage/app/public/.gitkeep
+/services/api/storage/framework/cache/*
+!/services/api/storage/framework/cache/.gitkeep
+/services/api/storage/framework/sessions/*
+!/services/api/storage/framework/sessions/.gitkeep
+/services/api/storage/framework/views/*
+!/services/api/storage/framework/views/.gitkeep
+/services/api/storage/logs/*
+!/services/api/storage/logs/.gitkeep
+/services/api/bootstrap/cache/*.php
+/services/api/.phpunit.result.cache
+/services/api/.phpunit.cache/
+/services/api/auth.json
+
+# ── Node / Next.js (apps/web) ───────────────────────────────────────────
+node_modules/
+.pnpm-store/
+.yarn/
+.npm/
+pnpm-lock.yaml
+/apps/web/.next/
+/apps/web/out/
+/apps/web/build/
+/apps/web/.swc/
+/apps/web/.turbo/
+/apps/web/.vercel/
+/apps/web/next-env.d.ts
+/apps/web/tsconfig.tsbuildinfo
+
+# ── Test & coverage ─────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+
+# ── IDE / OS ────────────────────────────────────────────────────────────
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ── Build artifacts / logs ──────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ── Docker / infra local ────────────────────────────────────────────────
+/docker-compose.override.yml
+/.docker-data/
+
+# ── Misc ────────────────────────────────────────────────────────────────
+/tmp/
+*.tmp
+.claude/

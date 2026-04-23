@@ -1,0 +1,10 @@
+{
+  "name": "Interna",
+  "short_name": "Interna",
+  "description": "SaaS para gestión de practicantes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": []
+}

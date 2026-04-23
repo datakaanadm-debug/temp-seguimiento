@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Paleta Interna brand · valores HSL para soporte de opacity */
+    --brand-primary: 189 91% 37%;       /* #0891B2 */
+    --brand-dark: 189 91% 31%;
+    --brand-accent: 188 86% 53%;
+
+    /* Neutral 950 -> 50 */
+    --neutral-950: 222 47% 11%;
+    --neutral-700: 215 25% 27%;
+    --neutral-500: 215 16% 47%;
+    --neutral-200: 214 32% 91%;
+    --neutral-50: 210 40% 98%;
+
+    /* Semantic tokens (shadcn-compatible) */
+    --background: 0 0% 100%;
+    --foreground: var(--neutral-950);
+
+    --card: 0 0% 100%;
+    --card-foreground: var(--neutral-950);
+
+    --popover: 0 0% 100%;
+    --popover-foreground: var(--neutral-950);
+
+    --primary: var(--brand-primary);
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: var(--neutral-950);
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: var(--neutral-500);
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: var(--neutral-950);
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: var(--brand-primary);
+
+    --radius-sm: 0.25rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 6%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 188 86% 53%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 188 86% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
