@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperCard } from '@/components/ui/primitives'
 import { useAuth } from '@/providers/auth-provider'
+import { updateTenant } from '@/features/auth/api'
 
 const ACCENTS = [
   { id: 'cobalt', label: 'Cobalto', c: '#3a5f8a' },
@@ -14,20 +15,59 @@ const ACCENTS = [
 ]
 
 export default function EmpresaPage() {
-  const { tenant } = useAuth()
+  const { tenant, setTenant } = useAuth()
+  const settings = (tenant?.settings ?? {}) as Record<string, any>
+  const theme = (tenant?.theme ?? {}) as Record<string, any>
+
   const [form, setForm] = useState({
     name: tenant?.name ?? '',
     slug: tenant?.slug ?? '',
-    domain: '',
-    industry: 'Tecnología',
-    size: '11-50',
-    data_residency: tenant?.data_residency ?? 'latam',
-    accent: 'cobalt',
+    domain: settings.domain ?? '',
+    industry: settings.industry ?? 'Tecnología',
+    size: settings.size ?? '11-50',
+    data_residency: (tenant?.data_residency ?? 'latam') as 'latam' | 'us' | 'eu',
+    accent: theme.accent ?? 'cobalt',
   })
+  const [saving, setSaving] = useState(false)
 
-  const save = (e: React.FormEvent) => {
+  // Re-sync si tenant cambia
+  useEffect(() => {
+    if (!tenant) return
+    setForm({
+      name: tenant.name,
+      slug: tenant.slug,
+      domain: (tenant.settings as any)?.domain ?? '',
+      industry: (tenant.settings as any)?.industry ?? 'Tecnología',
+      size: (tenant.settings as any)?.size ?? '11-50',
+      data_residency: tenant.data_residency,
+      accent: (tenant.theme as any)?.accent ?? 'cobalt',
+    })
+  }, [tenant?.id])
+
+  const save = async (e: React.FormEvent) => {
     e.preventDefault()
-    toast.success('Configuración de empresa guardada')
+    setSaving(true)
+    try {
+      const res = await updateTenant({
+        name: form.name,
+        slug: form.slug,
+        data_residency: form.data_residency,
+        theme: { ...theme, accent: form.accent },
+        settings: {
+          ...settings,
+          industry: form.industry,
+          size: form.size,
+          domain: form.domain || null,
+        } as any,
+      })
+      setTenant(res.tenant)
+      toast.success('Configuración de empresa guardada')
+    } catch (err: any) {
+      const msg = err?.errors?.slug?.[0] ?? err?.message ?? 'Error al guardar'
+      toast.error(msg)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -39,9 +79,10 @@ export default function EmpresaPage() {
         right={
           <button
             type="submit"
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2 disabled:opacity-50"
           >
-            Guardar cambios
+            {saving ? 'Guardando…' : 'Guardar cambios'}
           </button>
         }
       />
@@ -54,6 +95,7 @@ export default function EmpresaPage() {
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className="input-paper"
+              required
             />
           </Field>
           <Field label="Slug · subdominio">
@@ -65,6 +107,7 @@ export default function EmpresaPage() {
                   setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })
                 }
                 className="input-paper flex-1 font-mono"
+                required
               />
               <span className="font-mono text-[11px] text-ink-3">.interna.app</span>
             </div>
@@ -108,7 +151,9 @@ export default function EmpresaPage() {
           <Field label="Residencia de datos">
             <select
               value={form.data_residency}
-              onChange={(e) => setForm({ ...form, data_residency: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, data_residency: e.target.value as 'latam' | 'us' | 'eu' })
+              }
               className="input-paper"
             >
               <option value="latam">LATAM (MX)</option>
@@ -151,9 +196,14 @@ export default function EmpresaPage() {
             Logo
           </div>
           <div className="mt-1.5 text-[12px] text-ink-3">
-            Arrastra un archivo aquí o <button type="button" className="font-medium text-primary hover:underline">busca en tu equipo</button>
+            Arrastra un archivo aquí o{' '}
+            <button type="button" className="font-medium text-primary hover:underline">
+              busca en tu equipo
+            </button>
           </div>
-          <div className="mt-1 text-[10.5px] text-ink-muted">PNG o SVG · min 200×200 · máx 2 MB</div>
+          <div className="mt-1 text-[10.5px] text-ink-muted">
+            PNG o SVG · min 200×200 · máx 2 MB (subida pendiente de integración)
+          </div>
         </div>
       </PaperCard>
 

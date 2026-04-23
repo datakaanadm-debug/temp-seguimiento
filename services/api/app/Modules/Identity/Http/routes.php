@@ -41,6 +41,14 @@ Route::get('/tenant', [TenantController::class, 'show'])
     ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])
     ->name('tenant.show');
 
+Route::put('/tenant', [TenantController::class, 'update'])
+    ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])
+    ->name('tenant.update');
+
+Route::get('/roles', [\App\Modules\Identity\Http\Controllers\RolesController::class, 'index'])
+    ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])
+    ->name('roles.index');
+
 // ── Invitations (authenticated) ────────────────────────────────────────
 Route::middleware(['tenant', 'auth:sanctum', 'tenant.member'])->group(function () {
     Route::get('/invitations', [InvitationController::class, 'index'])->name('invitations.index');

@@ -53,3 +53,35 @@ export async function acceptInvitation(
   await ensureCsrfCookie()
   return apiClient.post('/api/v1/invitations/accept', input)
 }
+
+export interface UpdateTenantInput {
+  name?: string
+  slug?: string
+  data_residency?: 'latam' | 'us' | 'eu'
+  plan?: 'starter' | 'growth' | 'business' | 'enterprise'
+  theme?: Partial<{ brand_primary: string; brand_dark: string; brand_accent: string }>
+  settings?: Partial<{ industry: string; size: string; domain: string | null }>
+}
+
+export async function updateTenant(input: UpdateTenantInput): Promise<{ tenant: Tenant }> {
+  return apiClient.put('/api/v1/tenant', input)
+}
+
+// ── Roles ─────────────────────────────────────────────────────────────
+export interface RoleInfo {
+  id: string
+  name: string
+  description: string
+  is_system: boolean
+  accent: string | null
+  members: number
+}
+
+export interface RolePermission {
+  cap: string
+  roles: string[]
+}
+
+export async function getRoles(): Promise<{ data: { roles: RoleInfo[]; permissions: RolePermission[] } }> {
+  return apiClient.get('/api/v1/roles')
+}
