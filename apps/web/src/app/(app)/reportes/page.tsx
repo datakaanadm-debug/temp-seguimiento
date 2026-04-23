@@ -1,21 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { Download, GraduationCap, Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { useState } from 'react'
+import { toast } from 'sonner'
+import { Icon } from '@/components/ui/icon'
+import { SectionTitle, PaperCard, PaperBadge } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useReportRuns } from '@/features/reports/hooks/use-reports'
-import { getDownloadUrl } from '@/features/reports/api/reports'
-import { formatBytes } from '@/lib/utils'
-import type { RunStatus } from '@/types/api'
+import { useReportRuns, useReportTemplates } from '@/features/reports/hooks/use-reports'
+import { getDownloadUrl, requestReport } from '@/features/reports/api/reports'
+import { formatBytes, cn } from '@/lib/utils'
+import type { ReportTemplate, RunStatus } from '@/types/api'
 
-const STATUS_VARIANT: Record<RunStatus, any> = {
-  queued: 'outline',
-  running: 'default',
-  completed: 'success',
-  failed: 'destructive',
-  expired: 'secondary',
+const STATUS_TONE: Record<RunStatus, 'neutral' | 'info' | 'accent' | 'warn' | 'ok' | 'danger'> = {
+  queued: 'neutral',
+  running: 'accent',
+  completed: 'ok',
+  failed: 'danger',
+  expired: 'neutral',
 }
 const STATUS_LABEL: Record<RunStatus, string> = {
   queued: 'En cola',
@@ -25,63 +26,220 @@ const STATUS_LABEL: Record<RunStatus, string> = {
   expired: 'Expirado',
 }
 
+const KIND_ICON: Record<string, keyof typeof Icon> = {
+  executive: 'Analytics',
+  team: 'People',
+  intern: 'Mentor',
+  university: 'Onboard',
+  custom: 'Settings',
+}
+
 export default function ReportesPage() {
-  const { data, isLoading } = useReportRuns({ mine: false })
-  const runs = data?.data ?? []
+  const { data: runsData, isLoading: runsLoading } = useReportRuns({ mine: false })
+  const { data: templatesData, isLoading: templatesLoading } = useReportTemplates()
+  const runs = runsData?.data ?? []
+  const templates = templatesData?.data ?? []
+
+  const [generatingId, setGeneratingId] = useState<string | null>(null)
+
+  const handleGenerate = async (template: ReportTemplate) => {
+    setGeneratingId(template.id)
+    try {
+      await requestReport({ template_id: template.id })
+      toast.success(`Reporte "${template.name}" encolado. Revisa el historial.`)
+    } catch (e: any) {
+      toast.error(e?.message ?? 'No se pudo solicitar el reporte.')
+    } finally {
+      setGeneratingId(null)
+    }
+  }
 
   const handleDownload = async (id: string) => {
-    const { download_url } = await getDownloadUrl(id)
-    window.open(download_url, '_blank')
+    try {
+      const { download_url } = await getDownloadUrl(id)
+      window.open(download_url, '_blank')
+    } catch {
+      toast.error('No se pudo obtener el link de descarga.')
+    }
   }
 
   return (
-    <div className="container py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Reportes</h1>
-          <p className="text-sm text-muted-foreground">Historial de reportes generados.</p>
+    <div className="mx-auto max-w-[1200px] px-7 py-5 pb-10">
+      <SectionTitle
+        kicker="Reportes ejecutivos"
+        title="Genera y descarga reportes"
+        sub={`${runs.length} reportes generados · ${templates.length} plantillas disponibles`}
+        right={
+          <>
+            <Link
+              href="/reportes/universidad/solicitar"
+              className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft"
+            >
+              <Icon.Onboard size={13} />
+              Reporte universidad
+            </Link>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+              disabled
+              title="Próximamente: builder personalizado"
+            >
+              <Icon.Plus size={13} />
+              Reporte personalizado
+            </button>
+          </>
+        }
+      />
+
+      {/* Plantillas grid */}
+      <div className="mb-6">
+        <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.6px] text-ink-3">
+          Plantillas listas para generar
         </div>
-        <Button asChild>
-          <Link href="/reportes/universidad/solicitar">
-            <GraduationCap className="h-4 w-4" /> Reporte universidad
-          </Link>
-        </Button>
+        {templatesLoading ? (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-28" />
+            ))}
+          </div>
+        ) : templates.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-paper-line bg-paper-surface p-10 text-center text-[13px] text-ink-3">
+            Aún no hay plantillas. Crea o activa una desde Configuración.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {templates.map((t) => {
+              const IconC = Icon[KIND_ICON[t.kind] ?? 'Analytics']
+              return (
+                <div
+                  key={t.id}
+                  className="group flex flex-col rounded-lg border border-paper-line bg-paper-raised p-3.5 transition hover:border-paper-line-soft hover:shadow-paper-2"
+                >
+                  <div className="mb-2 flex items-start gap-2">
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary-soft text-primary-ink">
+                      <IconC size={14} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-semibold text-ink">{t.name}</div>
+                      <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.4px] text-ink-3">
+                        {t.kind_label ?? t.kind}
+                      </div>
+                    </div>
+                    {t.is_system && (
+                      <PaperBadge tone="neutral" className="!text-[9px]">
+                        SISTEMA
+                      </PaperBadge>
+                    )}
+                  </div>
+                  <div className="mb-3 flex-1 text-[11.5px] leading-[1.45] text-ink-3">
+                    {formatLayout(t.layout)}
+                  </div>
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-ink-3">
+                      {Object.keys(t.config ?? {}).length} parámetros
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleGenerate(t)}
+                      disabled={generatingId === t.id}
+                      className="inline-flex items-center gap-1 rounded-md border border-paper-line bg-paper-surface px-2 py-[4px] text-[11px] font-medium text-ink-2 hover:border-paper-line-soft disabled:opacity-50"
+                    >
+                      {generatingId === t.id ? (
+                        <>
+                          <Icon.Sparkles size={10} />
+                          Solicitando…
+                        </>
+                      ) : (
+                        <>
+                          <Icon.Download size={10} />
+                          Generar
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
-        </div>
-      ) : runs.length === 0 ? (
-        <div className="border border-dashed rounded-lg p-12 text-center text-sm text-muted-foreground">
-          No has solicitado reportes aún.
-        </div>
-      ) : (
-        <div className="rounded-lg border bg-card divide-y">
-          {runs.map((r) => (
-            <div key={r.id} className="flex items-center gap-4 px-4 py-3">
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">
-                  {r.template?.name ?? 'Reporte'}
+      {/* Historial */}
+      <PaperCard
+        title="Historial de generaciones"
+        right={<span className="text-[11px] text-ink-3">{runs.length} totales</span>}
+        noPad
+      >
+        {runsLoading ? (
+          <div className="space-y-1 p-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full" />
+            ))}
+          </div>
+        ) : runs.length === 0 ? (
+          <div className="p-10 text-center text-[13px] text-ink-3">
+            Aún no has generado reportes.
+          </div>
+        ) : (
+          <div>
+            {runs.map((r, i) => (
+              <div
+                key={r.id}
+                className={cn(
+                  'grid items-center gap-3 px-4 py-3',
+                  i < runs.length - 1 && 'border-b border-paper-line-soft',
+                )}
+                style={{ gridTemplateColumns: '1fr 140px 100px 120px' }}
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-[13px] font-medium text-ink">
+                    {r.template?.name ?? 'Reporte sin plantilla'}
+                  </div>
+                  <div className="mt-0.5 font-mono text-[10.5px] text-ink-3">
+                    {new Date(r.created_at).toLocaleString('es-MX', {
+                      day: 'numeric',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    {r.file_size_bytes && ` · ${formatBytes(r.file_size_bytes)}`}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {new Date(r.created_at).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
-                  {r.file_size_bytes && ` · ${formatBytes(r.file_size_bytes)}`}
+                <div>
+                  <PaperBadge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</PaperBadge>
+                </div>
+                <div className="text-right font-mono text-[10.5px] text-ink-3">
+                  {r.format?.toUpperCase() ?? 'PDF'}
+                </div>
+                <div className="flex justify-end">
+                  {r.status === 'completed' ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(r.id)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[4px] text-[11px] font-medium text-ink-2 hover:border-paper-line-soft"
+                    >
+                      <Icon.Download size={11} />
+                      Descargar
+                    </button>
+                  ) : r.status === 'failed' ? (
+                    <span className="text-[11px] text-destructive">Revisa logs</span>
+                  ) : (
+                    <span className="font-mono text-[11px] text-ink-muted">—</span>
+                  )}
                 </div>
               </div>
-
-              {r.status === 'running' && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-              <Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge>
-
-              {r.status === 'completed' && (
-                <Button size="sm" variant="outline" onClick={() => handleDownload(r.id)}>
-                  <Download className="h-4 w-4" /> PDF
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </PaperCard>
     </div>
   )
+}
+
+function formatLayout(layout: string | null | undefined) {
+  if (!layout) return 'Layout por defecto'
+  if (typeof layout === 'string' && layout.length > 80) {
+    return layout.slice(0, 80) + '…'
+  }
+  return layout
 }
