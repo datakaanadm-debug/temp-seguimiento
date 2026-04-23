@@ -2,22 +2,21 @@
 
 import Link from 'next/link'
 import { useQueryState, parseAsBoolean, parseAsString } from 'nuqs'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Icon } from '@/components/ui/icon'
+import { SectionTitle, PaperBadge, TonalAvatar } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEvaluations } from '@/features/performance/hooks/use-evaluations'
-import { initialsFromName } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import type { EvaluationStatus } from '@/types/api'
 
-const STATUS_VARIANT: Record<EvaluationStatus, any> = {
-  SCHEDULED: 'outline',
-  IN_PROGRESS: 'default',
-  SUBMITTED: 'warning',
-  ACKNOWLEDGED: 'success',
-  DISPUTED: 'destructive',
-  RESOLVED: 'success',
-  CANCELLED: 'secondary',
+const STATUS_TONE: Record<EvaluationStatus, 'neutral' | 'info' | 'accent' | 'warn' | 'ok' | 'danger'> = {
+  SCHEDULED: 'neutral',
+  IN_PROGRESS: 'accent',
+  SUBMITTED: 'info',
+  ACKNOWLEDGED: 'ok',
+  DISPUTED: 'danger',
+  RESOLVED: 'ok',
+  CANCELLED: 'neutral',
 }
 
 const STATUS_LABEL: Record<EvaluationStatus, string> = {
@@ -30,9 +29,12 @@ const STATUS_LABEL: Record<EvaluationStatus, string> = {
   CANCELLED: 'Cancelada',
 }
 
+const FILTERS: EvaluationStatus[] = ['SCHEDULED', 'IN_PROGRESS', 'SUBMITTED', 'ACKNOWLEDGED']
+
 export default function EvaluacionesPage() {
-  const [mine, setMine] = useQueryState('mine', parseAsBoolean.withDefault(true))
+  const [mine, setMine] = useQueryState('mine', parseAsBoolean.withDefault(false))
   const [status, setStatus] = useQueryState('status', parseAsString)
+
   const { data, isLoading } = useEvaluations({
     mine,
     status: (status as EvaluationStatus | undefined) ?? undefined,
@@ -40,72 +42,128 @@ export default function EvaluacionesPage() {
   })
   const items = data?.data ?? []
 
-  return (
-    <div className="container py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Evaluaciones</h1>
-          <p className="text-sm text-muted-foreground">
-            Scorecards aplicados a practicantes.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant={mine ? 'default' : 'outline'} size="sm" onClick={() => setMine(!mine)}>
-            Solo mías
-          </Button>
-        </div>
-      </div>
+  const scheduled = items.filter((e) => e.status === 'SCHEDULED').length
+  const inProgress = items.filter((e) => e.status === 'IN_PROGRESS').length
+  const done = items.filter((e) => e.status === 'ACKNOWLEDGED' || e.status === 'RESOLVED').length
 
-      <div className="flex gap-2 flex-wrap">
-        {(['SCHEDULED', 'IN_PROGRESS', 'SUBMITTED', 'ACKNOWLEDGED'] as EvaluationStatus[]).map((s) => (
+  return (
+    <div className="mx-auto max-w-[1200px] px-7 py-5 pb-10">
+      <SectionTitle
+        kicker="Performance"
+        title="Evaluaciones de desempeño"
+        sub={`${items.length} evaluaciones · ${scheduled} programadas · ${inProgress} en curso · ${done} cerradas`}
+        right={
+          <>
+            <button
+              type="button"
+              onClick={() => setMine(!mine)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-[7px] text-[12px] font-medium transition',
+                mine
+                  ? 'border-primary-ink bg-primary text-primary-foreground'
+                  : 'border-paper-line bg-paper-raised text-ink-2 hover:border-paper-line-soft',
+              )}
+            >
+              <Icon.People size={13} />
+              {mine ? 'Sólo mías' : 'Todas'}
+            </button>
+            <Link
+              href="/evaluaciones?new=true"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+            >
+              <Icon.Plus size={13} />
+              Nueva evaluación
+            </Link>
+          </>
+        }
+      />
+
+      {/* Status filter chips */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {FILTERS.map((s) => {
+          const active = status === s
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatus(active ? null : s)}
+              className={cn(
+                'rounded-full border px-3 py-1 text-[12px] font-medium transition',
+                active
+                  ? 'border-primary-ink bg-primary-soft text-primary-ink'
+                  : 'border-paper-line bg-paper-raised text-ink-2 hover:border-paper-line-soft',
+              )}
+            >
+              {STATUS_LABEL[s]}
+            </button>
+          )
+        })}
+        {status && (
           <button
-            key={s}
-            onClick={() => setStatus(status === s ? null : s)}
-            className={`px-3 py-1 rounded-md border text-sm ${
-              status === s ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'
-            }`}
+            type="button"
+            onClick={() => setStatus(null)}
+            className="text-[11px] text-ink-3 hover:text-ink"
           >
-            {STATUS_LABEL[s]}
+            limpiar
           </button>
-        ))}
+        )}
       </div>
 
       {isLoading ? (
         <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="border border-dashed rounded-lg p-12 text-center text-sm text-muted-foreground">
-          Sin evaluaciones.
+        <div className="rounded-lg border border-dashed border-paper-line bg-paper-surface p-12 text-center">
+          <p className="text-[13px] text-ink-3">Sin evaluaciones con los filtros activos.</p>
         </div>
       ) : (
-        <div className="rounded-lg border bg-card divide-y">
-          {items.map((e) => (
+        <div className="overflow-hidden rounded-lg border border-paper-line bg-paper-raised">
+          {items.map((e, i) => (
             <Link
               key={e.id}
               href={`/evaluaciones/${e.id}`}
-              className="flex items-center gap-4 px-4 py-3 hover:bg-muted/40 transition-colors"
+              className={cn(
+                'grid items-center gap-4 px-4 py-3 transition hover:bg-paper-bg-2',
+                i < items.length - 1 && 'border-b border-paper-line-soft',
+              )}
+              style={{ gridTemplateColumns: '36px 1fr 140px 120px 110px 32px' }}
             >
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={e.subject?.avatar_url ?? undefined} />
-                <AvatarFallback className="text-[10px]">
-                  {initialsFromName(e.subject?.name ?? '?')}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium">{e.subject?.name ?? '—'}</div>
-                <div className="text-xs text-muted-foreground">
-                  {e.kind_label}
-                  {e.scheduled_for && ` · ${new Date(e.scheduled_for).toLocaleDateString('es-MX')}`}
+              <TonalAvatar
+                size={32}
+                name={e.subject?.name ?? e.subject?.email}
+              />
+              <div className="min-w-0">
+                <div className="truncate text-[13px] font-medium text-ink">
+                  {e.subject?.name ?? 'Sin sujeto'}
+                </div>
+                <div className="truncate text-[11px] text-ink-3">
+                  {e.kind_label ?? e.kind}
+                  {e.scheduled_for &&
+                    ` · ${new Date(e.scheduled_for).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`}
                 </div>
               </div>
-              {e.overall_score != null && (
-                <div className="hidden md:block text-right mr-3">
-                  <div className="text-xs text-muted-foreground">Score</div>
-                  <div className="font-semibold tabular-nums">{e.overall_score}/10</div>
-                </div>
-              )}
-              <Badge variant={STATUS_VARIANT[e.status]}>{STATUS_LABEL[e.status]}</Badge>
+              <div>
+                <PaperBadge tone={STATUS_TONE[e.status]}>
+                  {STATUS_LABEL[e.status]}
+                </PaperBadge>
+              </div>
+              <div className="text-right">
+                {e.overall_score != null ? (
+                  <div className="flex items-baseline justify-end gap-1">
+                    <span className="font-serif text-[20px] leading-none">{e.overall_score}</span>
+                    <span className="font-mono text-[10px] text-ink-3">/ 100</span>
+                  </div>
+                ) : (
+                  <span className="font-mono text-[11px] text-ink-muted">—</span>
+                )}
+              </div>
+              <div className="text-right font-mono text-[10.5px] text-ink-3">
+                {e.evaluator?.name?.split(' ')[0] ?? '—'}
+              </div>
+              <Icon.Chev size={12} className="text-ink-muted" />
             </Link>
           ))}
         </div>
