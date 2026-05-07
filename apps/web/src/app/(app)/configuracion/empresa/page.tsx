@@ -54,7 +54,7 @@ export default function EmpresaPage() {
         name: form.name,
         slug: form.slug,
         data_residency: form.data_residency,
-        theme: { ...theme, accent: form.accent },
+        theme: { ...theme, brand_accent: form.accent },
         settings: {
           ...settings,
           industry: form.industry,

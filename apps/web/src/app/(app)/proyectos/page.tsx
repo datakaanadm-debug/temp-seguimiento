@@ -40,7 +40,7 @@ export default function ProyectosPage() {
   const projects = data?.data ?? []
 
   const active = projects.filter((p) => p.status === 'active').length
-  const planning = projects.filter((p) => p.status === 'planning').length
+  const paused = projects.filter((p) => p.status === 'paused').length
   const done = projects.filter((p) => p.status === 'completed').length
 
   return (
@@ -48,7 +48,7 @@ export default function ProyectosPage() {
       <SectionTitle
         kicker="Proyectos · workspace"
         title="Todos los proyectos"
-        sub={`${projects.length} proyectos · ${active} activos · ${planning} en planificación · ${done} cerrados`}
+        sub={`${projects.length} proyectos · ${active} activos · ${paused} pausados · ${done} cerrados`}
         right={
           <>
             <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">

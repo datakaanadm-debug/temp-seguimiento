@@ -5,7 +5,16 @@ import { SectionTitle, PaperCard, PaperBadge } from '@/components/ui/primitives'
 import { useAuth } from '@/providers/auth-provider'
 import { cn } from '@/lib/utils'
 
-const PLANS = [
+interface Plan {
+  id: 'starter' | 'growth' | 'business' | 'enterprise'
+  name: string
+  price: number | null
+  practicantes: number
+  features: readonly string[]
+  highlight?: boolean
+}
+
+const PLANS: readonly Plan[] = [
   {
     id: 'starter',
     name: 'Starter',
@@ -35,7 +44,7 @@ const PLANS = [
     practicantes: Infinity,
     features: ['Todo Business +', 'SSO SAML/OIDC', 'SLA 99.9%', 'White-label', 'Integraciones custom'],
   },
-] as const
+]
 
 const INVOICES = [
   { id: 'INV-2026-04', date: '1 abr 2026', amount: 299, status: 'paid' as const },

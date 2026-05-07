@@ -19,7 +19,7 @@ export function TaskSubtasks({ taskId, projectId }: { taskId: string; projectId:
   const [newTitle, setNewTitle] = useState('')
 
   const { data, isLoading } = useTasks({
-    parent_task_id: taskId as any,
+    parent_task_id: taskId,
     per_page: 100,
   })
   const subtasks = data?.data ?? []

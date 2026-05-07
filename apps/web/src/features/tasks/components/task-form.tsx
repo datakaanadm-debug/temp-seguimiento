@@ -71,7 +71,11 @@ export function TaskForm({ projectId, onCreated }: { projectId: string; onCreate
         })),
     )
 
-  const people: Array<{ user_id: string; user: { name: string | null; email: string } | null | undefined }> = isIntern
+  // El tipo de `user` es opcional (Profile.user?: User) — lo dejamos así
+  // para que tanto los Profile[] del directorio como los stub que armamos
+  // para el caso intern encajen en la misma lista.
+  type Pickable = { user_id: string; user?: { name: string | null; email: string } | null }
+  const people: Pickable[] = isIntern
     ? [
         // El propio intern primero
         ...(user

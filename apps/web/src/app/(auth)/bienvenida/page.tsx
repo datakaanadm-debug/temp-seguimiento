@@ -15,8 +15,11 @@ const STEPS = [
 
 export default function BienvenidaPage() {
   const router = useRouter()
-  const user: { name?: string | null } | null = null
-  const tenant: { name?: string | null } | null = null
+  // TODO: hidratar desde useAuth cuando se conecte el flujo real.
+  // Por ahora la página es un stub visual; los tipos son explícitos
+  // para que TS no narrow `null` literal y permita acceder a `.name?`.
+  const user = null as { name?: string | null } | null
+  const tenant = null as { name?: string | null } | null
   const [step, setStep] = useState(0)
   const [profile, setProfile] = useState({
     avatar_url: '',

@@ -246,8 +246,11 @@ export function NewOkrDialog({
                     type="text"
                     value={kr.text}
                     onChange={(e) => {
+                      // Usamos `kr` del scope del map (garantizado defined)
+                      // en lugar de copy[idx] que TS tipa como T | undefined
+                      // bajo noUncheckedIndexedAccess.
                       const copy = [...krs]
-                      copy[idx] = { ...copy[idx], text: e.target.value }
+                      copy[idx] = { ...kr, text: e.target.value }
                       setKrs(copy)
                     }}
                     placeholder="Ej. Completar 5 proyectos con tests al 100%"

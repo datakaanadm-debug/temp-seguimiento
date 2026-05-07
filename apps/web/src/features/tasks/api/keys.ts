@@ -3,6 +3,8 @@ import type { TaskPriority, TaskState } from '@/types/api'
 export interface ListTasksParams {
   project_id?: string | null
   list_id?: string | null
+  parent_task_id?: string | null
+  key_result_id?: string | null
   state?: TaskState
   assignee_id?: string | null
   priority?: TaskPriority

@@ -323,7 +323,7 @@ export type Mood = 'great' | 'good' | 'ok' | 'stressed' | 'blocked'
 export interface DailyReport {
   id: UUID
   user_id: UUID
-  user?: { id: UUID; name: string | null; avatar_url: string | null }
+  user?: { id: UUID; name: string | null; email?: string; avatar_url: string | null }
   report_date: ISODate
   status: DailyReportStatus
   progress_summary: string
@@ -494,6 +494,7 @@ export interface ReportRun {
   period_end: ISODate | null
   parameters: Record<string, unknown> | null
   status: RunStatus
+  format?: string | null
   file_size_bytes: number | null
   download_url?: string
   error_message: string | null

@@ -5,7 +5,9 @@ import type { SVGProps } from 'react'
  * Uso: <Icon.Home /> · <Icon.Tasks size={18} />
  */
 
-type IconProps = SVGProps<SVGSVGElement> & { size?: number; stroke?: number }
+// Omit `stroke` del SVGProps base (que lo tipa string) para reasignarlo
+// como number — sino la intersección colapsa a `never`.
+type IconProps = Omit<SVGProps<SVGSVGElement>, 'stroke'> & { size?: number; stroke?: number }
 
 const Base = ({
   size = 16,
