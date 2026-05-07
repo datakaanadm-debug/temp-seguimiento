@@ -1,12 +1,14 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   DndContext, closestCorners, PointerSensor, useSensor, useSensors, DragOverlay,
+  useDroppable,
   type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Icon } from '@/components/ui/icon'
 import { useTasks } from '../hooks/use-tasks'
 import { useTaskRealtime } from '../hooks/use-task-realtime'
@@ -15,10 +17,20 @@ import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Task, TaskList, TaskState } from '@/types/api'
 import { STATE_LABELS } from '../lib/state-machine'
+import { taskKeys } from '../api/keys'
+import { changeTaskState, updateTask } from '../api/tasks'
+import { toast } from 'sonner'
 
 interface KanbanBoardProps {
   projectId?: string
   lists?: TaskList[]
+  filters?: {
+    state?: TaskState | null
+    priority?: string | null
+    assignee_id?: string | null
+    q?: string | null
+    mine?: boolean
+  }
 }
 
 const STATE_DOT: Record<string, string> = {
@@ -31,9 +43,16 @@ const STATE_DOT: Record<string, string> = {
 
 const VISIBLE_STATES: TaskState[] = ['BACKLOG', 'TO_DO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE']
 
-export function KanbanBoard({ projectId, lists }: KanbanBoardProps) {
+export function KanbanBoard({ projectId, lists, filters }: KanbanBoardProps) {
+  const router = useRouter()
+  const qc = useQueryClient()
   const { data, isLoading } = useTasks({
     project_id: projectId,
+    state: filters?.state ?? undefined,
+    priority: (filters?.priority as any) ?? undefined,
+    assignee_id: filters?.assignee_id ?? undefined,
+    q: filters?.q ?? undefined,
+    mine: filters?.mine || undefined,
     per_page: 200,
   })
   useTaskRealtime(projectId ?? '')
@@ -51,22 +70,66 @@ export function KanbanBoard({ projectId, lists }: KanbanBoardProps) {
     const t = tasks.find((x) => x.id === e.active.id)
     setActiveTask(t ?? null)
   }
-  const handleDragEnd = (e: DragEndEvent) => {
+  const handleDragEnd = async (e: DragEndEvent) => {
     setActiveTask(null)
     const { active, over } = e
     if (!over) return
 
     const task = tasks.find((t) => t.id === active.id)
-    const destColumn = (over.data?.current as any)?.columnKey as string | undefined
-    if (!task || !destColumn) return
+    if (!task) return
 
+    // `over` puede ser la columna (useDroppable) o una card (useSortable).
+    // Si es una card, resolver su columna a partir de los grupos.
+    let destColumn: string | undefined = (over.data?.current as any)?.columnKey
+    if (!destColumn) {
+      const overTask = tasks.find((t) => t.id === over.id)
+      if (overTask) {
+        destColumn = lists && lists.length > 0
+          ? (overTask.list_id ?? undefined)
+          : (overTask.state === 'BLOCKED' ? 'IN_PROGRESS' : overTask.state)
+      }
+    }
+    if (!destColumn) return
+
+    // Columnas sin lists = por estado
     if (!lists || lists.length === 0) {
       const targetState = destColumn as TaskState
       if (targetState && targetState !== task.state) {
-        changeStateFor(task.id, targetState)
+        // Optimistic update en todas las listas
+        qc.setQueriesData<any>({ queryKey: ['tasks', 'list'] }, (old: any) => {
+          if (!old?.data) return old
+          return {
+            ...old,
+            data: old.data.map((t: Task) =>
+              t.id === task.id ? { ...t, state: targetState } : t,
+            ),
+          }
+        })
+        try {
+          await changeTaskState(task.id, targetState)
+        } catch (err: any) {
+          toast.error(err?.message ?? 'No se pudo mover la tarea')
+        } finally {
+          qc.invalidateQueries({ queryKey: taskKeys.all })
+        }
       }
     } else if (destColumn !== task.list_id) {
-      updateListFor(task.id, destColumn)
+      qc.setQueriesData<any>({ queryKey: ['tasks', 'list'] }, (old: any) => {
+        if (!old?.data) return old
+        return {
+          ...old,
+          data: old.data.map((t: Task) =>
+            t.id === task.id ? { ...t, list_id: destColumn } : t,
+          ),
+        }
+      })
+      try {
+        await updateTask(task.id, { list_id: destColumn })
+      } catch (err: any) {
+        toast.error(err?.message ?? 'No se pudo mover la tarea')
+      } finally {
+        qc.invalidateQueries({ queryKey: taskKeys.all })
+      }
     }
   }
 
@@ -93,7 +156,11 @@ export function KanbanBoard({ projectId, lists }: KanbanBoardProps) {
     >
       <div className="grid gap-3 overflow-x-auto pb-3" style={{ gridTemplateColumns: 'repeat(5, minmax(240px, 1fr))' }}>
         {columns.map((col) => (
-          <KanbanColumn key={col.key} column={col} />
+          <KanbanColumn
+            key={col.key}
+            column={col}
+            onOpenTask={(id) => router.push(`/tareas/${id}`)}
+          />
         ))}
       </div>
       <DragOverlay>
@@ -150,8 +217,14 @@ function buildColumns(tasks: Task[], lists?: TaskList[]): Column[] {
   }))
 }
 
-function KanbanColumn({ column }: { column: Column }) {
-  const { setNodeRef } = useSortable({
+function KanbanColumn({
+  column,
+  onOpenTask,
+}: {
+  column: Column
+  onOpenTask: (id: string) => void
+}) {
+  const { setNodeRef, isOver } = useDroppable({
     id: `col-${column.key}`,
     data: { columnKey: column.key },
   })
@@ -161,7 +234,10 @@ function KanbanColumn({ column }: { column: Column }) {
     <div
       ref={setNodeRef}
       data-column={column.key}
-      className="flex min-h-[420px] flex-col rounded-lg border border-paper-line-soft bg-paper-surface"
+      className={cn(
+        'flex min-h-[420px] flex-col rounded-lg border bg-paper-surface transition-colors',
+        isOver ? 'border-primary-ink bg-primary-soft/30' : 'border-paper-line-soft',
+      )}
     >
       <header className="flex items-center gap-2 border-b border-paper-line-soft px-3 py-2.5">
         <span
@@ -189,26 +265,15 @@ function KanbanColumn({ column }: { column: Column }) {
       <SortableContext items={column.items.map((t) => t.id)} strategy={verticalListSortingStrategy}>
         <div className="flex flex-1 flex-col gap-2 p-2">
           {column.items.map((task) => (
-            <Link key={task.id} href={`/tareas/${task.id}`} className="block" onClick={(e) => { /* dnd-kit handles drag */ if ((e.target as HTMLElement).closest('[data-dragging]')) e.preventDefault() }}>
-              <TaskCard task={task} />
-            </Link>
+            <TaskCard
+              key={task.id}
+              task={task}
+              onClick={() => onOpenTask(task.id)}
+            />
           ))}
-          <button
-            type="button"
-            className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-paper-line bg-transparent px-2 py-2 text-[12px] text-ink-3 transition hover:border-paper-line-soft hover:text-ink"
-          >
-            <Icon.Plus size={12} /> Añadir tarea
-          </button>
         </div>
       </SortableContext>
     </div>
   )
 }
 
-function changeStateFor(taskId: string, state: TaskState) {
-  import('../api/tasks').then(({ changeTaskState }) => changeTaskState(taskId, state))
-}
-
-function updateListFor(taskId: string, listId: string) {
-  import('../api/tasks').then(({ updateTask }) => updateTask(taskId, { list_id: listId }))
-}

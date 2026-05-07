@@ -18,6 +18,7 @@ final class TaskResource extends JsonResource
             'id' => $this->id,
             'project_id' => $this->project_id,
             'list_id' => $this->list_id,
+            'key_result_id' => $this->key_result_id,
             'parent_task_id' => $this->parent_task_id,
             'title' => $this->title,
             'description' => $this->description,
@@ -48,8 +49,32 @@ final class TaskResource extends JsonResource
             'comment_count' => $this->whenCounted('comments'),
             'attachment_count' => $this->whenCounted('attachments'),
             'tags' => TagResource::collection($this->whenLoaded('tags')),
+            'collaborators' => $this->collaboratorsList(),
             'created_at' => $this->created_at->toIso8601String(),
             'updated_at' => $this->updated_at->toIso8601String(),
         ];
+    }
+
+    /**
+     * Carga colaboradores (task_assignees con role='collaborator') vía join directo.
+     * Para listas grandes considera eager loading dedicado.
+     */
+    private function collaboratorsList(): array
+    {
+        $rows = \DB::table('task_assignees as ta')
+            ->join('users as u', 'u.id', '=', 'ta.user_id')
+            ->where('ta.task_id', $this->id)
+            ->where('ta.role', 'assignee')
+            ->select('u.id', 'u.name', 'u.email', 'u.avatar_url', 'ta.assigned_at')
+            ->orderBy('ta.assigned_at')
+            ->get();
+
+        return $rows->map(fn ($r) => [
+            'id' => $r->id,
+            'name' => $r->name,
+            'email' => $r->email,
+            'avatar_url' => $r->avatar_url,
+            'assigned_at' => $r->assigned_at,
+        ])->all();
     }
 }

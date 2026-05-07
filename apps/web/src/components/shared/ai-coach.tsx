@@ -1,9 +1,12 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
+import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
 import { PaperBadge } from '@/components/ui/primitives'
 import { cn } from '@/lib/utils'
+import { sendChatMessage, type ChatMessage } from '@/features/ai/api/ai'
 
 type Message = {
   id: string
@@ -29,10 +32,11 @@ const INITIAL_MESSAGES: Message[] = [
 ]
 
 /**
- * Coach IA flotante — aparece como FAB en esquina inferior derecha.
- * Cuando exista /api/v1/ai/chat se conecta ahí. Por ahora devuelve mock plausible.
+ * Coach IA flotante — FAB en esquina inferior derecha.
+ * Conectado a POST /api/v1/ai/chat con contexto del usuario (bitácora, tareas, sesiones).
  */
 export function AiCoach() {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES)
   const [input, setInput] = useState('')
@@ -43,25 +47,47 @@ export function AiCoach() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, thinking])
 
-  const send = (text: string) => {
+  const send = async (text: string) => {
     if (!text.trim() || thinking) return
     const now = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-    setMessages((m) => [
-      ...m,
+
+    const nextMessages: Message[] = [
+      ...messages,
       { id: `u-${Date.now()}`, role: 'user', text, time: now },
-    ])
+    ]
+    setMessages(nextMessages)
     setInput('')
     setThinking(true)
 
-    // Mock assistant response
-    setTimeout(() => {
-      const reply = mockReply(text)
+    try {
+      const history: ChatMessage[] = nextMessages
+        .filter((m) => m.id !== 'm1') // omite el greeting estático
+        .map((m) => ({ role: m.role, content: m.text }))
+
+      const res = await sendChatMessage({
+        messages: history.length > 0 ? history : [{ role: 'user', content: text }],
+        current_route: pathname ?? undefined,
+      })
+
+      const replyTime = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
       setMessages((m) => [
         ...m,
-        { id: `a-${Date.now()}`, role: 'assistant', text: reply, time: now },
+        { id: `a-${Date.now()}`, role: 'assistant', text: res.data.content, time: replyTime },
       ])
+    } catch (err: any) {
+      toast.error(err?.message ?? 'No se pudo contactar al coach IA')
+      setMessages((m) => [
+        ...m,
+        {
+          id: `e-${Date.now()}`,
+          role: 'assistant',
+          text: 'Tuve un problema conectándome. Intenta de nuevo en un momento.',
+          time: now,
+        },
+      ])
+    } finally {
       setThinking(false)
-    }, 900 + Math.random() * 800)
+    }
   }
 
   return (
@@ -70,6 +96,7 @@ export function AiCoach() {
       <button
         type="button"
         onClick={() => setOpen(true)}
+        data-tour="ai-coach-fab"
         className={cn(
           'fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-ink text-paper-surface shadow-paper-3 transition-transform hover:scale-105',
           open && 'scale-0 opacity-0',
@@ -209,19 +236,3 @@ export function AiCoach() {
   )
 }
 
-function mockReply(prompt: string): string {
-  const p = prompt.toLowerCase()
-  if (p.includes('priorizar') || p.includes('hoy')) {
-    return 'Para hoy priorizaría estas 3 tareas: (1) T-112 "Dashboard ejecutivo" — está en revisión y bloquea al líder; (2) T-118 "Research competidores" — vence viernes y llevas 2h de 5 estimadas; (3) la bitácora de ayer, que no enviaste. ¿Quieres que agende pomodoros?'
-  }
-  if (p.includes('resum') && p.includes('seman')) {
-    return 'Esta semana completaste 4 tareas (meta 5), reportaste 4 de 5 días, y tus KPIs de calidad están arriba de la media del equipo (+12%). Punto de atención: 2 tareas vencieron sin marcar como bloqueadas — vale la pena mencionarlo en tu próximo 1:1.'
-  }
-  if (p.includes('bitácora') || p.includes('bitacora')) {
-    return 'Te propongo este borrador basado en tus tareas de hoy:\n\n• Avancé el prototipo del dashboard ejecutivo (T-112) — subí mockups a Figma.\n• Sincronicé con el líder para alinear copy del onboarding.\n• Empecé research competitivo para landing v2.\n\n¿Lo publico como borrador o prefieres editarlo?'
-  }
-  if (p.includes('bloqueo')) {
-    return 'Detecté 2 señales de bloqueo en tu equipo: Mateo I. con 3 tareas vencidas esta semana (patrón de atraso), y Diego H. con un comentario sin respuesta en T-128 hace 2 días. Te sugiero mencionarlo en el daily de mañana.'
-  }
-  return 'Entendido. Estoy trabajando en conectarme a tus datos reales para darte una respuesta precisa. Por ahora, ¿quieres que te ayude con una de las acciones rápidas?'
-}

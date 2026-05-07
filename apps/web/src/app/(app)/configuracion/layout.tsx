@@ -12,6 +12,7 @@ const NAV: Array<{ href: string; label: string; icon: IconName; section: string 
   { href: '/configuracion/empresa', label: 'Empresa', icon: 'Onboard', section: 'Workspace' },
   { href: '/configuracion/equipo', label: 'Usuarios y equipo', icon: 'People', section: 'Workspace' },
   { href: '/configuracion/roles', label: 'Roles y permisos', icon: 'Settings', section: 'Workspace' },
+  { href: '/configuracion/onboarding-plantilla', label: 'Plantilla de onboarding', icon: 'Onboard', section: 'Workspace' },
   { href: '/configuracion/integraciones', label: 'Integraciones', icon: 'Auto', section: 'Workspace' },
   { href: '/configuracion/facturacion', label: 'Facturación', icon: 'Attach', section: 'Workspace' },
 ]

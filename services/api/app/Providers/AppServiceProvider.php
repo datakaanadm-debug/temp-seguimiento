@@ -4,17 +4,31 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Mail\AddGlobalReplyTo;
 use App\Modules\AI\Application\Contracts\LlmClient;
 use App\Modules\AI\Infrastructure\Clients\ClaudeLlmClient;
+use App\Modules\AI\Infrastructure\Clients\FakeLlmClient;
+use App\Modules\Gamification\Application\RecentAwardsCollector;
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Binding del LLM client según config('ai.provider')
+        // Binding del LLM client según config('ai.provider') y disponibilidad de API key.
+        // Si no hay ANTHROPIC_API_KEY configurada, caemos a FakeLlmClient para dev local.
+        // Una instancia POR REQUEST. Acumula awards otorgadas durante el
+        // ciclo HTTP para que AppendRecentAwards las añada al JSON final.
+        $this->app->scoped(RecentAwardsCollector::class);
+
         $this->app->singleton(LlmClient::class, function () {
-            return match (config('ai.provider', 'claude')) {
+            $provider = config('ai.provider', 'claude');
+            if ($provider === 'fake' || empty(config('services.anthropic.api_key'))) {
+                return new FakeLlmClient();
+            }
+            return match ($provider) {
                 'claude' => new ClaudeLlmClient(),
                 // fase 2: 'openai' => new OpenAiLlmClient(),
                 default => throw new \RuntimeException(
@@ -26,6 +40,103 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // nothing for now
+        Event::listen(MessageSending::class, AddGlobalReplyTo::class);
+
+        // Event → Listener bindings (Laravel 11 manual registration).
+        // Mantener agrupado por módulo. Si falta un binding aquí, el listener
+        // nunca se dispara aunque el evento se haga `event(...)`.
+
+        // Identity
+        Event::listen(
+            \App\Modules\Identity\Domain\Events\UserInvited::class,
+            \App\Modules\Identity\Infrastructure\Listeners\SendInvitationEmail::class,
+        );
+        Event::listen(
+            \App\Modules\Identity\Domain\Events\UserLoggedIn::class,
+            \App\Modules\Identity\Infrastructure\Listeners\AuditUserLogin::class,
+        );
+        Event::listen(
+            \App\Modules\Identity\Domain\Events\UserActivated::class,
+            \App\Modules\Onboarding\Infrastructure\Listeners\ProvisionNewMemberResources::class,
+        );
+
+        // Tasks
+        Event::listen(
+            \App\Modules\Tasks\Domain\Events\TaskAssigned::class,
+            \App\Modules\Notifications\Infrastructure\Listeners\NotifyTaskAssigned::class,
+        );
+        Event::listen(
+            \App\Modules\Tasks\Domain\Events\TaskCommented::class,
+            \App\Modules\Notifications\Infrastructure\Listeners\NotifyCommentMentions::class,
+        );
+        Event::listen(
+            \App\Modules\Tasks\Domain\Events\TimeEntryStopped::class,
+            \App\Modules\Tasks\Infrastructure\Listeners\UpdateTaskActualMinutes::class,
+        );
+        Event::listen(
+            [
+                \App\Modules\Tasks\Domain\Events\TaskCreated::class,
+                \App\Modules\Tasks\Domain\Events\TaskUpdated::class,
+                \App\Modules\Tasks\Domain\Events\TaskStateChanged::class,
+            ],
+            \App\Modules\Tasks\Infrastructure\Listeners\AuditTaskActivity::class,
+        );
+
+        // Tracking
+        Event::listen(
+            \App\Modules\Tracking\Domain\Events\BlockerRaised::class,
+            \App\Modules\Notifications\Infrastructure\Listeners\NotifyBlockerRaised::class,
+        );
+        Event::listen(
+            \App\Modules\Tracking\Domain\Events\DailyReportSubmitted::class,
+            \App\Modules\Notifications\Infrastructure\Listeners\NotifyDailyReportSubmitted::class,
+        );
+        Event::listen(
+            \App\Modules\Tracking\Domain\Events\DailyReportSubmitted::class,
+            \App\Modules\AI\Infrastructure\Listeners\TriggerDailySummary::class,
+        );
+
+        // Gamification — engine que mueve user_points y user_badges en respuesta
+        // a la actividad real del workspace. Cualquier badge nueva debe
+        // ENCHUFAR un listener aquí, o queda dormida.
+        Event::listen(
+            \App\Modules\Tracking\Domain\Events\DailyReportSubmitted::class,
+            \App\Modules\Gamification\Application\Listeners\AwardPointsOnDailyReport::class,
+        );
+        Event::listen(
+            \App\Modules\Tasks\Domain\Events\TaskStateChanged::class,
+            \App\Modules\Gamification\Application\Listeners\AwardPointsOnTaskDone::class,
+        );
+        Event::listen(
+            \App\Modules\Tasks\Domain\Events\TaskCommented::class,
+            \App\Modules\Gamification\Application\Listeners\AwardCollabOnComment::class,
+        );
+        Event::listen(
+            \App\Modules\Onboarding\Domain\Events\OnboardingChecklistCompleted::class,
+            \App\Modules\Gamification\Application\Listeners\AwardBadgeOnOnboardingComplete::class,
+        );
+        Event::listen(
+            \App\Modules\People\Domain\Events\InternAssignedToMentor::class,
+            \App\Modules\Gamification\Application\Listeners\AwardBadgeOnMentorAssignment::class,
+        );
+        Event::listen(
+            \App\Modules\People\Domain\Events\InternHired::class,
+            \App\Modules\Gamification\Application\Listeners\AwardLegacyInternBadge::class,
+        );
+        Event::listen(
+            \App\Modules\Tasks\Domain\Events\ProjectCompleted::class,
+            \App\Modules\Gamification\Application\Listeners\AwardFirstProjectBadge::class,
+        );
+        Event::listen(
+            \App\Modules\Performance\Domain\Events\EvaluationSubmitted::class,
+            \App\Modules\Gamification\Application\Listeners\AwardExemplaryFeedbackBadge::class,
+        );
+
+        // OKR auto-progress: cuando una task vinculada a un KR cambia de
+        // estado, recalcula `progress_percent` del KR como % de tareas DONE.
+        Event::listen(
+            \App\Modules\Tasks\Domain\Events\TaskStateChanged::class,
+            \App\Modules\Okrs\Application\Listeners\RecomputeKeyResultProgress::class,
+        );
     }
 }

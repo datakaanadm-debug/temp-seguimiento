@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperBadge, TonalAvatar } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEvaluations } from '@/features/performance/hooks/use-evaluations'
+import { Can } from '@/components/shared/can'
 import { cn } from '@/lib/utils'
 import type { EvaluationStatus } from '@/types/api'
 
@@ -67,13 +68,15 @@ export default function EvaluacionesPage() {
               <Icon.People size={13} />
               {mine ? 'Sólo mías' : 'Todas'}
             </button>
-            <Link
-              href="/evaluaciones?new=true"
-              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
-            >
-              <Icon.Plus size={13} />
-              Nueva evaluación
-            </Link>
+            <Can capability="create_evaluations">
+              <Link
+                href="/evaluaciones?new=true"
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+              >
+                <Icon.Plus size={13} />
+                Nueva evaluación
+              </Link>
+            </Can>
           </>
         }
       />

@@ -65,10 +65,10 @@ final class MentorAssignmentController extends Controller
 
         try {
             $assignment = $this->assignHandler->handle(new AssignMentor(
-                internUserId: $request->string('intern_user_id'),
-                mentorUserId: $request->string('mentor_user_id'),
+                internUserId: (string) $request->string('intern_user_id'),
+                mentorUserId: (string) $request->string('mentor_user_id'),
                 actor: $request->user(),
-                notes: $request->string('notes') ?: null,
+                notes: $request->filled('notes') ? (string) $request->string('notes') : null,
             ));
         } catch (MentorCapacityExceeded $e) {
             throw ValidationException::withMessages([

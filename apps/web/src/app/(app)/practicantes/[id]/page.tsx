@@ -1,17 +1,48 @@
 'use client'
 
 import Link from 'next/link'
-import { use } from 'react'
+import { use, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
 import {
   SectionTitle, PaperCard, PaperBadge, TonalAvatar,
 } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useProfile } from '@/features/people/hooks/use-people'
+import { MentorCard } from '@/features/people/components/mentor-card'
+import { EditProfileDialog } from '@/features/people/components/edit-profile-dialog'
+import { Can } from '@/components/shared/can'
+import { markInternHired } from '@/features/people/api/people'
 
 export default function PracticantePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { data: profile, isLoading } = useProfile(id)
+  const [editOpen, setEditOpen] = useState(false)
+  const qc = useQueryClient()
+
+  const hireMutation = useMutation({
+    mutationFn: () => markInternHired(id),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['profile', id] })
+      qc.invalidateQueries({ queryKey: ['profiles-list'] })
+      if (res.meta?.was_first_time) {
+        toast.success('Practicante marcado como contratado 🎉')
+      } else {
+        toast.info('Ya estaba marcado como contratado.')
+      }
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'No se pudo marcar como contratado'),
+  })
+
+  const handleMarkHired = () => {
+    if (!profile) return
+    const name = profile.user?.name ?? profile.user?.email ?? 'este practicante'
+    if (!window.confirm(`¿Marcar a ${name} como contratado? Se otorgará la badge "Legacy intern" y quedará registrado como graduado del programa.`)) {
+      return
+    }
+    hireMutation.mutate()
+  }
 
   if (isLoading) {
     return (
@@ -73,13 +104,37 @@ export default function PracticantePage({ params }: { params: Promise<{ id: stri
               </div>
             )}
           </div>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft"
-          >
-            <Icon.Settings size={13} />
-            Editar
-          </button>
+          <Can capability="view_all_interns">
+            <div className="flex flex-col items-end gap-1.5">
+              {profile.hired_at && (
+                <PaperBadge tone="ok" className="!text-[10.5px]">
+                  Contratado · {new Date(profile.hired_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </PaperBadge>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft"
+                >
+                  <Icon.Settings size={13} />
+                  Editar
+                </button>
+                {profile.kind === 'intern' && !profile.hired_at && (
+                  <button
+                    type="button"
+                    onClick={handleMarkHired}
+                    disabled={hireMutation.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-ink px-2.5 py-[7px] text-[12px] font-medium text-paper-surface hover:bg-ink-2 disabled:opacity-50"
+                    title="Otorga la badge 'Legacy intern' y registra al practicante como graduado del programa"
+                  >
+                    <Icon.Check size={13} />
+                    {hireMutation.isPending ? 'Marcando…' : 'Marcar como contratado'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </Can>
         </div>
 
         {profile.bio && (
@@ -88,6 +143,8 @@ export default function PracticantePage({ params }: { params: Promise<{ id: stri
           </p>
         )}
       </div>
+
+      <EditProfileDialog open={editOpen} onOpenChange={setEditOpen} profile={profile} />
 
       {/* Details */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -110,6 +167,8 @@ export default function PracticantePage({ params }: { params: Promise<{ id: stri
             </div>
           </PaperCard>
         )}
+
+        {profile.kind === 'intern' && u?.id && <MentorCard internUserId={u.id} />}
 
         <PaperCard title="Contacto y fechas">
           <div className="space-y-3 text-[13px]">

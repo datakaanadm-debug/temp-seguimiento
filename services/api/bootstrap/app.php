@@ -21,8 +21,14 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        // Inyecta `_awarded_badges` en JSON cuando un listener otorgó badges
+        // durante este request (gamification engine).
+        $middleware->append(\App\Http\Middleware\AppendRecentAwards::class);
 
         $middleware->statefulApi();
+
+        // Para rutas API, no redirigir a login. Devolver JSON 401.
+        $middleware->redirectGuestsTo(fn (\Illuminate\Http\Request $req) => $req->expectsJson() || $req->is('api/*') ? null : route('login'));
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->dontFlash([

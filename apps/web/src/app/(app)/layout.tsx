@@ -6,6 +6,8 @@ import { AiCoach } from '@/components/shared/ai-coach'
 import { PresenceBar } from '@/components/shared/presence-bar'
 import { AuthProvider } from '@/providers/auth-provider'
 import { RealtimeProvider } from '@/providers/realtime-provider'
+import { TourLauncher } from '@/features/onboarding/tour/tour-launcher'
+import { AwardedBadgeListener } from '@/features/gamification/components/awarded-badge-listener'
 import { requireSession } from '@/lib/auth/server'
 
 export default async function AppShellLayout({ children }: { children: React.ReactNode }) {
@@ -26,6 +28,8 @@ export default async function AppShellLayout({ children }: { children: React.Rea
           <CommandPalette />
           <AiCoach />
           <PresenceBar />
+          <TourLauncher />
+          <AwardedBadgeListener />
         </div>
       </RealtimeProvider>
     </AuthProvider>

@@ -1,16 +1,18 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperCard, PaperBadge } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import {
   listObjectives, checkInKeyResult,
-  type Objective,
+  type KeyResult, type Objective,
 } from '@/features/okrs/api/okrs'
+import { NewOkrDialog } from '@/features/okrs/components/new-okr-dialog'
+import { CheckInDialog } from '@/features/okrs/components/check-in-dialog'
+import { Can } from '@/components/shared/can'
 
 const VIEWS = [
   { id: 'mine', label: 'Los míos' },
@@ -21,6 +23,7 @@ type View = (typeof VIEWS)[number]['id']
 
 export default function OkrsPage() {
   const [view, setView] = useState<View>('mine')
+  const [newOkrOpen, setNewOkrOpen] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['okrs-all'],
@@ -61,13 +64,21 @@ export default function OkrsPage() {
                 </button>
               ))}
             </div>
-            <button className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2">
-              <Icon.Plus size={13} />
-              Nuevo OKR
-            </button>
+            <Can capability="create_okr">
+              <button
+                type="button"
+                onClick={() => setNewOkrOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+              >
+                <Icon.Plus size={13} />
+                Nuevo OKR
+              </button>
+            </Can>
           </>
         }
       />
+
+      <NewOkrDialog open={newOkrOpen} onOpenChange={setNewOkrOpen} parentOptions={objectives} />
 
       {isLoading ? (
         <Skeleton className="h-96 w-full" />
@@ -90,6 +101,7 @@ export default function OkrsPage() {
 
 function ObjectiveCard({ objective }: { objective: Objective }) {
   const qc = useQueryClient()
+  const [checkInKr, setCheckInKr] = useState<KeyResult | null>(null)
   const avg = useMemo(
     () =>
       objective.key_results.length
@@ -106,28 +118,10 @@ function ObjectiveCard({ objective }: { objective: Objective }) {
   )
   const levelTone = { company: 'ok', team: 'accent', individual: 'info' } as const
 
-  const checkIn = useMutation({
-    mutationFn: (input: { krId: string; newProgress: number; newConfidence: number }) =>
-      checkInKeyResult(input.krId, {
-        new_progress: input.newProgress,
-        new_confidence: input.newConfidence,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['okrs-all'] })
-      toast.success('Check-in registrado')
-    },
-    onError: (e: any) => toast.error(e?.message ?? 'Error'),
-  })
-
-  const onCheckIn = (krId: string, currentProgress: number, currentConfidence: number) => {
-    const raw = prompt(`Nuevo progreso % (0-100). Actual: ${currentProgress}%`, String(currentProgress))
-    if (raw === null) return
-    const newProgress = Math.max(0, Math.min(100, parseInt(raw, 10) || 0))
-    const rawConf = prompt(`Confianza 0-10. Actual: ${currentConfidence}`, String(currentConfidence))
-    if (rawConf === null) return
-    const newConfidence = Math.max(0, Math.min(10, parseInt(rawConf, 10) || 0))
-    checkIn.mutate({ krId, newProgress, newConfidence })
-  }
+  // Mutation kept para compat (no se usa directo desde UI ahora — el dialog la maneja).
+  // El dialog invalida el query cache en su onSuccess.
+  void checkInKeyResult
+  void qc
 
   return (
     <PaperCard>
@@ -174,12 +168,12 @@ function ObjectiveCard({ objective }: { objective: Objective }) {
               <span className="flex-1 text-ink-2">{k.text}</span>
               <button
                 type="button"
-                onClick={() => onCheckIn(k.id, k.progress_percent, k.confidence)}
-                disabled={checkIn.isPending}
-                className="rounded font-mono text-[11px] text-ink-3 hover:text-ink disabled:opacity-50"
-                title="Actualizar progreso"
+                onClick={() => setCheckInKr(k)}
+                className="inline-flex items-center gap-1 rounded-md border border-paper-line-soft bg-paper-surface px-2 py-[2px] font-mono text-[11px] text-ink-2 hover:border-paper-line hover:text-ink"
+                title="Registrar check-in"
               >
                 {k.progress_percent}%
+                <Icon.Chev size={10} />
               </button>
             </div>
             <div className="h-[3px] overflow-hidden rounded-full bg-paper-line-soft">
@@ -199,6 +193,13 @@ function ObjectiveCard({ objective }: { objective: Objective }) {
           </div>
         ))}
       </div>
+
+      <CheckInDialog
+        open={!!checkInKr}
+        onOpenChange={(o) => !o && setCheckInKr(null)}
+        kr={checkInKr}
+        objectiveLabel={objective.label}
+      />
     </PaperCard>
   )
 }

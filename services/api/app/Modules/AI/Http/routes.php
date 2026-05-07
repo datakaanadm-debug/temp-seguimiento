@@ -2,11 +2,17 @@
 
 declare(strict_types=1);
 
+use App\Modules\AI\Http\Controllers\ChatController;
 use App\Modules\AI\Http\Controllers\InsightController;
 use App\Modules\AI\Http\Controllers\SummaryController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['tenant', 'auth:sanctum', 'tenant.member'])->group(function () {
+    // Chat (copiloto con contexto del usuario)
+    Route::post('/ai/chat', [ChatController::class, 'send'])
+        ->middleware('throttle:30,60')
+        ->name('ai.chat');
+
     // Summaries (bajo demanda)
     Route::get('/ai/summaries', [SummaryController::class, 'index'])
         ->name('ai.summaries.index');

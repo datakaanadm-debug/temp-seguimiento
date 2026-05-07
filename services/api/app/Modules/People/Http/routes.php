@@ -14,6 +14,8 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.member'])->group(function (
     Route::patch('/profiles/{profile}', [ProfileController::class, 'update'])->name('profiles.update');
     Route::put('/profiles/{profile}/intern-data', [ProfileController::class, 'upsertInternData'])
         ->name('profiles.intern-data.upsert');
+    Route::post('/profiles/{profile}/mark-hired', [ProfileController::class, 'markHired'])
+        ->name('profiles.mark-hired');
 
     // Mentor assignments
     Route::get('/mentor-assignments', [MentorAssignmentController::class, 'index'])

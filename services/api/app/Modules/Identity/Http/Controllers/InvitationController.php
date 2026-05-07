@@ -63,10 +63,10 @@ final class InvitationController extends Controller
     {
         ['invitation' => $invitation] = $this->inviteHandler->handle(new InviteUser(
             email: strtolower((string) $request->string('email')),
-            role: $request->string('role'),
+            role: (string) $request->string('role'),
             actor: $request->user(),
-            teamId: $request->string('team_id') ?: null,
-            mentorId: $request->string('mentor_id') ?: null,
+            teamId: $request->filled('team_id') ? (string) $request->string('team_id') : null,
+            mentorId: $request->filled('mentor_id') ? (string) $request->string('mentor_id') : null,
             expiresInHours: (int) $request->integer('expires_in_hours', 72),
         ));
 
@@ -102,12 +102,12 @@ final class InvitationController extends Controller
     {
         try {
             $result = $this->acceptHandler->handle(new AcceptInvitation(
-                plainToken: $request->string('token'),
+                plainToken: (string) $request->string('token'),
                 email: strtolower((string) $request->string('email')),
-                name: $request->string('name'),
-                password: $request->string('password'),
-                timezone: $request->string('timezone') ?: null,
-                locale: $request->string('locale') ?: null,
+                name: (string) $request->string('name'),
+                password: (string) $request->string('password'),
+                timezone: $request->filled('timezone') ? (string) $request->string('timezone') : null,
+                locale: $request->filled('locale') ? (string) $request->string('locale') : null,
             ));
         } catch (InvitationInvalid $e) {
             throw ValidationException::withMessages([

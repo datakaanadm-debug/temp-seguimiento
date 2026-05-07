@@ -11,6 +11,26 @@ export async function summarizeDailyReport(dailyReportId: string) {
   })
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface ChatResponse {
+  data: {
+    role: 'assistant'
+    content: string
+    model: string
+  }
+}
+
+export async function sendChatMessage(input: {
+  messages: ChatMessage[]
+  current_route?: string
+}): Promise<ChatResponse> {
+  return apiClient.post('/api/v1/ai/chat', input)
+}
+
 export async function approveSummary(id: string) {
   return apiClient.post<DataEnvelope<AiSummary>>(`/api/v1/ai/summaries/${id}/approve`)
 }

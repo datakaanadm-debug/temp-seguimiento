@@ -44,6 +44,7 @@ final class CreateTaskHandler
             $task = Task::create([
                 'project_id' => $project->id,
                 'list_id' => $listId,
+                'key_result_id' => $command->keyResultId,
                 'parent_task_id' => $command->parentTaskId,
                 'title' => $command->title,
                 'description' => $command->description,

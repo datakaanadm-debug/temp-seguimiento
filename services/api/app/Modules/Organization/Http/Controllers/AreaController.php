@@ -37,8 +37,8 @@ final class AreaController extends Controller
     public function store(CreateAreaRequest $request): JsonResponse
     {
         $area = $this->createHandler->handle(new CreateArea(
-            departmentId: $request->string('department_id'),
-            name: $request->string('name'),
+            departmentId: (string) $request->string('department_id'),
+            name: (string) $request->string('name'),
             slug: strtolower((string) $request->string('slug')),
             actor: $request->user(),
             position: (int) $request->integer('position', 0),

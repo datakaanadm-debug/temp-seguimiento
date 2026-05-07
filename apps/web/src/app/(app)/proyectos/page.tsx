@@ -2,10 +2,13 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperBadge, TonalAvatar } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listProjects } from '@/features/tasks/api/tasks'
+import { Can } from '@/components/shared/can'
+import { useRequireRole } from '@/hooks/use-require-role'
 import { cn } from '@/lib/utils'
 import type { ProjectStatus } from '@/types/api'
 
@@ -28,10 +31,12 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export default function ProyectosPage() {
+  const allowed = useRequireRole(['tenant_admin', 'hr', 'team_lead', 'mentor', 'supervisor'])
   const { data, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: () => listProjects({}),
   })
+  if (!allowed) return null
   const projects = data?.data ?? []
 
   const active = projects.filter((p) => p.status === 'active').length
@@ -50,10 +55,18 @@ export default function ProyectosPage() {
               <Icon.Filter size={13} />
               Filtros
             </button>
-            <button className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2">
-              <Icon.Plus size={13} />
-              Nuevo proyecto
-            </button>
+            <Can capability="create_projects">
+              <button
+                type="button"
+                onClick={() =>
+                  toast.info('Crear proyecto llegará junto con el módulo de plantillas.')
+                }
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+              >
+                <Icon.Plus size={13} />
+                Nuevo proyecto
+              </button>
+            </Can>
           </>
         }
       />

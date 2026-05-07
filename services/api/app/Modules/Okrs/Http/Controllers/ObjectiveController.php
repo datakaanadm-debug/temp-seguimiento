@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Okrs\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Gamification\Application\GamificationService;
 use App\Modules\Okrs\Domain\KeyResult;
 use App\Modules\Okrs\Domain\Objective;
 use App\Modules\Okrs\Domain\OkrCheckIn;
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
 
 class ObjectiveController extends Controller
 {
+    public function __construct(private readonly GamificationService $gamification) {}
+
     public function index(Request $request): JsonResponse
     {
         $q = Objective::query()->with('keyResults');
@@ -23,6 +26,23 @@ class ObjectiveController extends Controller
         if ($request->filled('owner_type')) $q->where('owner_type', $request->string('owner_type'));
         if ($request->boolean('mine')) {
             $q->where('owner_type', 'user')->where('owner_id', $request->user()->id);
+        }
+
+        // Visibilidad por rol:
+        //   - admin/hr: ven todo
+        //   - team_lead/mentor/supervisor: ven company + team + individuals (alineación)
+        //   - intern: ve company + team + sus propios individuales (no de otros interns)
+        $actor = $request->user();
+        $role = $actor->primaryRole()?->value;
+        if ($role === 'intern') {
+            $q->where(function ($sub) use ($actor) {
+                $sub->whereIn('level', ['company', 'team'])
+                    ->orWhere(function ($s) use ($actor) {
+                        $s->where('level', 'individual')
+                          ->where('owner_type', 'user')
+                          ->where('owner_id', $actor->id);
+                    });
+            });
         }
 
         $objectives = $q->orderByRaw("CASE level WHEN 'company' THEN 1 WHEN 'team' THEN 2 ELSE 3 END")
@@ -50,6 +70,27 @@ class ObjectiveController extends Controller
             'key_results.*.confidence' => ['nullable', 'integer', 'min:0', 'max:10'],
         ]);
 
+        // Authorization por nivel:
+        //   - company → solo tenant_admin + hr
+        //   - team    → tenant_admin + hr + team_lead
+        //   - individual → cualquiera (pero el owner debe ser el propio user salvo staff)
+        $actor = $request->user();
+        $role = $actor->primaryRole()?->value;
+        $level = (string) $data['level'];
+
+        if ($level === 'company' && !in_array($role, ['tenant_admin', 'hr'], true)) {
+            abort(403, 'Solo admin o RRHH pueden crear OKRs a nivel empresa.');
+        }
+        if ($level === 'team' && !in_array($role, ['tenant_admin', 'hr', 'team_lead'], true)) {
+            abort(403, 'Solo admin, RRHH o líder de equipo pueden crear OKRs a nivel equipo.');
+        }
+        if ($level === 'individual'
+            && !in_array($role, ['tenant_admin', 'hr', 'team_lead'], true)
+            && $data['owner_id'] !== $actor->id
+        ) {
+            abort(403, 'Solo puedes crear OKRs individuales para ti mismo.');
+        }
+
         $krs = $data['key_results'] ?? [];
         unset($data['key_results']);
 
@@ -74,9 +115,21 @@ class ObjectiveController extends Controller
         ], 201);
     }
 
-    public function destroy(string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse
     {
-        Objective::findOrFail($id)->delete();
+        $objective = Objective::findOrFail($id);
+        $actor = $request->user();
+        $role = $actor->primaryRole()?->value;
+
+        // Solo staff (admin/hr/team_lead) o el owner del objective pueden eliminar.
+        $isStaff = in_array($role, ['tenant_admin', 'hr', 'team_lead'], true);
+        $isOwner = $objective->owner_type === 'user' && $objective->owner_id === $actor->id;
+
+        if (!$isStaff && !$isOwner) {
+            abort(403, 'No tienes permiso para eliminar este OKR.');
+        }
+
+        $objective->delete();
         return response()->json(['ok' => true]);
     }
 
@@ -89,6 +142,17 @@ class ObjectiveController extends Controller
         ]);
 
         $kr = KeyResult::findOrFail($krId);
+        $objective = Objective::findOrFail($kr->objective_id);
+        $actor = $request->user();
+        $role = $actor->primaryRole()?->value;
+
+        // Solo staff, o el owner del objective (si owner_type=user), pueden hacer check-in.
+        $isStaff = in_array($role, ['tenant_admin', 'hr', 'team_lead'], true);
+        $isOwner = $objective->owner_type === 'user' && $objective->owner_id === $actor->id;
+
+        if (!$isStaff && !$isOwner) {
+            abort(403, 'Solo el dueño del OKR o staff pueden registrar check-ins.');
+        }
 
         OkrCheckIn::create([
             'tenant_id' => TenantContext::currentId(),
@@ -101,9 +165,16 @@ class ObjectiveController extends Controller
             'note' => $data['note'] ?? null,
         ]);
 
+        $previousProgress = (int) $kr->progress_percent;
         $kr->progress_percent = $data['new_progress'];
         if (isset($data['new_confidence'])) $kr->confidence = $data['new_confidence'];
         $kr->save();
+
+        // Si subió a 100, evaluamos completitud del objective y, si aplica,
+        // del trimestre completo del owner para otorgar `okr-master`.
+        if ($previousProgress < 100 && (int) $kr->progress_percent >= 100) {
+            $this->onKeyResultCompleted($objective);
+        }
 
         return response()->json([
             'data' => [
@@ -112,6 +183,58 @@ class ObjectiveController extends Controller
                 'confidence' => $kr->confidence,
             ],
         ]);
+    }
+
+    /**
+     * Evalúa si el objective quedó completo (todos sus KRs al 100%) y, si el
+     * owner es un usuario individual, evalúa si todos sus objectives del
+     * trimestre están completos para otorgar `okr-master`.
+     */
+    private function onKeyResultCompleted(Objective $objective): void
+    {
+        $allKrsDone = !KeyResult::where('objective_id', $objective->id)
+            ->where('progress_percent', '<', 100)
+            ->exists();
+
+        if (!$allKrsDone) return;
+
+        // Marcar el objective como completed (idempotente)
+        if ($objective->status !== 'completed') {
+            $objective->status = 'completed';
+            $objective->save();
+        }
+
+        if ($objective->owner_type !== 'user' || !$objective->owner_id) {
+            return;
+        }
+
+        // ¿Todos los objectives individuales de este usuario en este Q están completos?
+        $userId = $objective->owner_id;
+        $quarter = $objective->quarter;
+
+        $totalQ = Objective::where('owner_type', 'user')
+            ->where('owner_id', $userId)
+            ->where('quarter', $quarter)
+            ->count();
+
+        if ($totalQ < 1) return;
+
+        $doneQ = Objective::where('owner_type', 'user')
+            ->where('owner_id', $userId)
+            ->where('quarter', $quarter)
+            ->where('status', 'completed')
+            ->count();
+
+        if ($doneQ === $totalQ) {
+            $this->gamification->awardBadge($userId, 'okr-master');
+        } else {
+            // Progreso visible mientras avanza
+            $this->gamification->updateProgress(
+                $userId,
+                'okr-master',
+                (int) round(($doneQ / max(1, $totalQ)) * 100),
+            );
+        }
     }
 
     private function objectiveToArray(Objective $o): array

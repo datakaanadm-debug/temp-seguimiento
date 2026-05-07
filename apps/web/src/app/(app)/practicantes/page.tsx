@@ -1,22 +1,32 @@
 'use client'
 
+import { useState } from 'react'
 import { useQueryState, parseAsString } from 'nuqs'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Can } from '@/components/shared/can'
 import { useProfiles } from '@/features/people/hooks/use-people'
 import { PersonRow } from '@/features/people/components/person-row'
+import { InviteDialog } from '@/features/people/components/invite-dialog'
+import { useRequireRole } from '@/hooks/use-require-role'
 import { cn } from '@/lib/utils'
 
 const KINDS = [
   { id: 'intern', label: 'Practicantes' },
   { id: 'mentor', label: 'Mentores' },
-  { id: 'staff', label: 'Staff' },
+  { id: 'staff', label: 'Líderes y staff' },
+  { id: 'hr', label: 'RRHH' },
+  { id: 'admin', label: 'Admins' },
 ] as const
 
 export default function PracticantesPage() {
+  const allowed = useRequireRole(['tenant_admin', 'hr', 'team_lead', 'mentor'])
   const [q, setQ] = useQueryState('q', parseAsString.withDefault(''))
   const [kind, setKind] = useQueryState('kind', parseAsString)
+  const [inviteOpen, setInviteOpen] = useState(false)
+
+  if (!allowed) return null
 
   const { data, isLoading } = useProfiles({
     q: q || undefined,
@@ -42,15 +52,20 @@ export default function PracticantesPage() {
             : `${stats.total} totales · ${stats.interns} practicantes · ${stats.mentors} mentores`
         }
         right={
-          <button
-            type="button"
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
-          >
-            <Icon.Plus size={13} />
-            Invitar persona
-          </button>
+          <Can capability="invite_users">
+            <button
+              type="button"
+              onClick={() => setInviteOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+            >
+              <Icon.Plus size={13} />
+              Invitar persona
+            </button>
+          </Can>
         }
       />
+
+      <InviteDialog open={inviteOpen} onOpenChange={setInviteOpen} />
 
       {/* Search + filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2">

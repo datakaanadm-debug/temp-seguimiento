@@ -13,6 +13,8 @@ import {
 import { initialsFromName, cn } from '@/lib/utils'
 import { useConnectionStatus } from '@/hooks/use-connection-status'
 import { clearTenantSlug } from '@/lib/tenant'
+import { useTour } from '@/features/onboarding/tour/use-tour'
+import { NotificationsBell } from '@/features/notifications/components/notifications-bell'
 
 const ROUTE_LABELS: Record<string, string> = {
   'mi-dia': 'Mi día',
@@ -53,6 +55,7 @@ export function Topbar() {
   const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen)
   const connectionStatus = useConnectionStatus()
   const crumbs = useBreadcrumbs()
+  const tour = useTour()
 
   const handleLogout = async () => {
     try { await apiClient.post('/api/v1/auth/logout') } catch { /* noop */ }
@@ -101,13 +104,7 @@ export function Topbar() {
 
         <ConnectionDot status={connectionStatus} />
 
-        <Link
-          href="/notificaciones"
-          className="flex h-8 w-8 items-center justify-center rounded-md text-ink-3 hover:bg-paper-bg-2 hover:text-ink"
-          aria-label="Notificaciones"
-        >
-          <Icon.Bell size={15} />
-        </Link>
+        <NotificationsBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -145,6 +142,10 @@ export function Topbar() {
                 <Icon.Settings size={14} />
                 Preferencias
               </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => tour.start()} className="gap-2">
+              <Icon.Sparkles size={14} />
+              Hacer tour de bienvenida
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="gap-2">

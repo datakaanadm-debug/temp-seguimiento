@@ -36,6 +36,14 @@ Route::get('/auth/me', [AuthController::class, 'me'])
     ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])
     ->name('auth.me');
 
+Route::post('/auth/me/tour-complete', [AuthController::class, 'completeTour'])
+    ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])
+    ->name('auth.me.tour-complete');
+
+Route::post('/auth/me/tour-reset', [AuthController::class, 'resetTour'])
+    ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])
+    ->name('auth.me.tour-reset');
+
 // ── Tenant info ────────────────────────────────────────────────────────
 Route::get('/tenant', [TenantController::class, 'show'])
     ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])
@@ -44,6 +52,19 @@ Route::get('/tenant', [TenantController::class, 'show'])
 Route::put('/tenant', [TenantController::class, 'update'])
     ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])
     ->name('tenant.update');
+
+Route::post('/tenant/logo', [TenantController::class, 'uploadLogo'])
+    ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])
+    ->name('tenant.logo.upload');
+
+Route::delete('/tenant/logo', [TenantController::class, 'removeLogo'])
+    ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])
+    ->name('tenant.logo.remove');
+
+// Endpoint público para servir el logo (es branding, no PII).
+// Sin middleware tenant para que <img src> directo desde browser funcione.
+Route::get('/tenants/{tenant}/logo', [TenantController::class, 'showLogo'])
+    ->name('tenants.logo.show');
 
 Route::get('/roles', [\App\Modules\Identity\Http\Controllers\RolesController::class, 'index'])
     ->middleware(['tenant', 'auth:sanctum', 'tenant.member'])

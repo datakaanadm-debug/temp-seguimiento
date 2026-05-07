@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Icon } from '@/components/ui/icon'
 import { cn } from '@/lib/utils'
+import { TourDialog } from '@/features/onboarding/components/tour-dialog'
 
 const STEPS = [
   { id: 'profile', label: 'Perfil', icon: 'People' as const },
@@ -25,6 +26,7 @@ export default function BienvenidaPage() {
   })
   const [docsSigned, setDocsSigned] = useState({ nda: false, regulations: false })
   const [tourDone, setTourDone] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
 
   const pct = ((step + 1) / STEPS.length) * 100
   const isLast = step === STEPS.length - 1
@@ -189,7 +191,7 @@ export default function BienvenidaPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setTourDone(true)}
+                  onClick={() => setTourOpen(true)}
                   className={cn(
                     'inline-flex items-center gap-1.5 rounded-md border px-4 py-2 text-[13px] font-medium transition',
                     tourDone
@@ -207,6 +209,11 @@ export default function BienvenidaPage() {
                     </>
                   )}
                 </button>
+                <TourDialog
+                  open={tourOpen}
+                  onOpenChange={setTourOpen}
+                  onComplete={() => setTourDone(true)}
+                />
               </div>
             )}
 

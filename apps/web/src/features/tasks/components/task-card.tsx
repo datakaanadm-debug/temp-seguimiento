@@ -38,9 +38,15 @@ export function TaskCard({ task, onClick, draggable = true }: TaskCardProps) {
       ref={setNodeRef}
       style={style}
       {...(draggable ? { ...attributes, ...listeners } : {})}
-      onClick={onClick}
+      onClick={(e) => {
+        // Si dnd-kit está moviendo, no dispares click
+        if (isDragging) return
+        onClick?.()
+      }}
       className={cn(
-        'cursor-grab rounded-md border border-paper-line bg-paper-raised p-2.5 shadow-paper-1 transition-colors',
+        'rounded-md border border-paper-line bg-paper-raised p-2.5 shadow-paper-1 transition-colors',
+        draggable && 'cursor-grab active:cursor-grabbing',
+        onClick && !draggable && 'cursor-pointer',
         'hover:border-paper-line-soft',
         isDragging && 'opacity-40',
         task.is_overdue && 'border-destructive/40',

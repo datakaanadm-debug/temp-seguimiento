@@ -30,11 +30,39 @@ export function TaskTimelineView({ params }: { params: ListTasksParams }) {
     const bars = tasks
       .filter((t) => t.due_at || t.started_at)
       .map((t) => {
-        const started = t.started_at ? new Date(t.started_at).setHours(0, 0, 0, 0) : start
-        const due = t.due_at ? new Date(t.due_at).setHours(0, 0, 0, 0) : started
-        const startCol = Math.max(0, Math.floor((started - start) / DAY_MS))
-        const span = Math.max(1, Math.min(WINDOW_DAYS - startCol, Math.floor((due - started) / DAY_MS) + 1))
-        if (startCol >= WINDOW_DAYS) return null
+        const dueRaw = t.due_at ? new Date(t.due_at).setHours(0, 0, 0, 0) : null
+        const startedRaw = t.started_at ? new Date(t.started_at).setHours(0, 0, 0, 0) : null
+
+        // Anchor el bar en due_at; si solo hay started_at úsalo como pin.
+        // Si ambos existen, bar de started → due.
+        let barStart: number
+        let barEnd: number
+        if (startedRaw && dueRaw) {
+          barStart = startedRaw
+          barEnd = dueRaw
+        } else if (dueRaw) {
+          // Estima duración desde estimated_minutes; si no, muestra pin de 1 día
+          const estDays = t.estimated_minutes
+            ? Math.max(1, Math.ceil(t.estimated_minutes / 60 / 8))
+            : 1
+          barEnd = dueRaw
+          barStart = dueRaw - (estDays - 1) * DAY_MS
+        } else if (startedRaw) {
+          barStart = startedRaw
+          barEnd = Math.max(startedRaw, start)
+        } else {
+          return null
+        }
+
+        // Clamp al viewport de WINDOW_DAYS días desde hoy
+        const viewEnd = start + (WINDOW_DAYS - 1) * DAY_MS
+        if (barEnd < start || barStart > viewEnd) return null
+
+        const clampedStart = Math.max(barStart, start)
+        const clampedEnd = Math.min(barEnd, viewEnd)
+        const startCol = Math.floor((clampedStart - start) / DAY_MS)
+        const span = Math.max(1, Math.floor((clampedEnd - clampedStart) / DAY_MS) + 1)
+
         return { task: t, start: startCol, span }
       })
       .filter(Boolean) as Array<{ task: (typeof tasks)[number]; start: number; span: number }>

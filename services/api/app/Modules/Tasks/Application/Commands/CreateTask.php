@@ -17,6 +17,7 @@ final readonly class CreateTask
         public User $actor,
         public ?string $listId = null,
         public ?string $parentTaskId = null,
+        public ?string $keyResultId = null,
         public ?string $description = null,
         public string $priority = 'normal',
         public ?string $assigneeId = null,

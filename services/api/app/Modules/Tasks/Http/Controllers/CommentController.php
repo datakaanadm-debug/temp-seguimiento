@@ -50,8 +50,8 @@ final class CommentController extends Controller
         $comment = $this->addHandler->handle(new AddComment(
             taskId: $task->id,
             author: $request->user(),
-            body: $request->string('body'),
-            parentCommentId: $request->string('parent_comment_id') ?: null,
+            body: (string) $request->string('body'),
+            parentCommentId: $request->filled('parent_comment_id') ? (string) $request->string('parent_comment_id') : null,
         ));
 
         return response()->json([

@@ -52,6 +52,10 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.member'])->group(function (
         ->name('tasks.attachments.presign');
     Route::post('/tasks/{task}/attachments', [AttachmentController::class, 'store'])
         ->name('tasks.attachments.store');
+    Route::post('/tasks/{task}/attachments/upload', [AttachmentController::class, 'upload'])
+        ->name('tasks.attachments.upload');
+    Route::get('/attachments/{attachment}/download', [AttachmentController::class, 'download'])
+        ->name('attachments.download');
     Route::delete('/attachments/{attachment}', [AttachmentController::class, 'destroy'])
         ->name('attachments.destroy');
 

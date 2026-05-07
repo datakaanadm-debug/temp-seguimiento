@@ -19,7 +19,7 @@ const NAV: NavItem[] = [
   { href: '/mi-dia', label: 'Inicio', icon: 'Home', roles: ['intern'] },
   { href: '/dashboard', label: 'Inicio', icon: 'Home', roles: ['tenant_admin', 'hr', 'team_lead', 'mentor', 'supervisor'] },
   { href: '/tareas', label: 'Tareas', icon: 'Tasks' },
-  { href: '/proyectos', label: 'Proyectos', icon: 'Panel' },
+  { href: '/proyectos', label: 'Proyectos', icon: 'Panel', roles: ['tenant_admin', 'hr', 'team_lead', 'mentor', 'supervisor'] },
   { href: '/reportes-diarios', label: 'Bitácora', icon: 'Log' },
   { href: '/mentoria', label: 'Mentoría', icon: 'Mentor' },
   { href: '/evaluaciones', label: 'Evaluaciones', icon: 'Eval' },
@@ -37,6 +37,26 @@ const isItemForRole = (item: NavItem, role?: MembershipRole | null) => {
   if (!item.roles) return true
   return role ? item.roles.includes(role) : false
 }
+
+const TOUR_IDS: Record<string, string> = {
+  '/mi-dia': 'sidebar-mi-dia',
+  '/dashboard': 'sidebar-mi-dia',
+  '/tareas': 'sidebar-tareas',
+  '/proyectos': 'sidebar-proyectos',
+  '/reportes-diarios': 'sidebar-bitacora',
+  '/mentoria': 'sidebar-mentoria',
+  '/evaluaciones': 'sidebar-evaluaciones',
+  '/okrs': 'sidebar-okrs',
+  '/analitica': 'sidebar-analitica',
+  '/onboarding': 'sidebar-onboarding',
+  '/logros': 'sidebar-logros',
+  '/practicantes': 'sidebar-practicantes',
+  '/automatizacion': 'sidebar-automatizacion',
+  '/ia': 'sidebar-ia',
+  '/reportes': 'sidebar-reportes',
+}
+
+const tourIdFor = (href: string): string | undefined => TOUR_IDS[href]
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -110,10 +130,12 @@ export function Sidebar() {
           {nav.map((item) => {
             const active = pathname === item.href || pathname.startsWith(item.href + '/')
             const IconC = Icon[item.icon]
+            const tourId = tourIdFor(item.href)
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
+                  data-tour={tourId}
                   className={cn(
                     'group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors',
                     active

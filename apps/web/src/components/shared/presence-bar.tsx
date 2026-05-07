@@ -1,40 +1,73 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { TonalAvatar } from '@/components/ui/primitives'
+import { apiClient } from '@/lib/api-client'
+import { useAuth } from '@/providers/auth-provider'
 
 type Peer = {
-  id: string
+  user_id: string
   name: string
-  color: string
+  email: string
+  last_seen_at: number
 }
 
+const HEARTBEAT_MS = 20_000
+const POLL_MS = 20_000
+
 /**
- * PresenceBar — muestra avatares de quién más está viendo la misma pantalla.
- * UI lista para conectar a RealtimeProvider cuando los canales de Reverb
- * emitan 'presence:{route}' events. Por ahora usa mock estable por route.
+ * PresenceBar — muestra quién más está en la misma sección.
+ *
+ * Usa heartbeat-based presence sin WebSocket:
+ *   - Cliente hace POST /presence/heartbeat cada 20s con la ruta
+ *   - Cliente hace GET /presence cada 20s para leer peers activos (TTL 60s)
+ *
+ * No se muestra cuando no hay otros usuarios. Al salir de la ruta el TTL
+ * caduca automáticamente.
  */
 export function PresenceBar() {
   const pathname = usePathname()
+  const { user } = useAuth()
   const [peers, setPeers] = useState<Peer[]>([])
 
   useEffect(() => {
-    // Simulación: peers dependen de la ruta actual.
-    // En producción conectar al realtime provider con channel = `route:${pathname}`.
-    if (pathname.startsWith('/tareas') || pathname.startsWith('/proyectos')) {
-      setPeers([
-        { id: 'u1', name: 'Lucía Ramírez', color: '#456b7a' },
-        { id: 'u2', name: 'Sofía Beltrán', color: '#8a6b9e' },
-      ])
-    } else if (pathname.startsWith('/reportes-diarios')) {
-      setPeers([{ id: 'u3', name: 'Mara Villalobos', color: '#5a7a3f' }])
-    } else {
-      setPeers([])
+    if (!user) return
+
+    let cancelled = false
+
+    const heartbeat = () => {
+      apiClient
+        .post('/api/v1/presence/heartbeat', { path: pathname })
+        .catch(() => { /* ignora fallos transitorios */ })
     }
-  }, [pathname])
+
+    const refresh = async () => {
+      try {
+        const res = await apiClient.get<{ data: Peer[] }>('/api/v1/presence', {
+          searchParams: { path: pathname },
+        })
+        if (!cancelled) setPeers(res.data ?? [])
+      } catch {
+        if (!cancelled) setPeers([])
+      }
+    }
+
+    heartbeat()
+    refresh()
+    const hbId = setInterval(heartbeat, HEARTBEAT_MS)
+    const pollId = setInterval(refresh, POLL_MS)
+
+    return () => {
+      cancelled = true
+      clearInterval(hbId)
+      clearInterval(pollId)
+    }
+  }, [pathname, user])
 
   if (peers.length === 0) return null
+
+  const firstNames = peers.map((p) => (p.name ?? p.email).split(' ')[0])
 
   return (
     <div
@@ -44,11 +77,11 @@ export function PresenceBar() {
       <div className="flex -space-x-2">
         {peers.slice(0, 4).map((p) => (
           <div
-            key={p.id}
-            title={p.name}
+            key={p.user_id}
+            title={p.name ?? p.email}
             className="rounded-full border-2 border-paper-raised"
           >
-            <TonalAvatar size={24} name={p.name} tone={p.color} />
+            <TonalAvatar size={24} name={p.name ?? p.email} />
           </div>
         ))}
         {peers.length > 4 && (
@@ -60,12 +93,16 @@ export function PresenceBar() {
       <span className="text-[11px] text-ink-3">
         {peers.length === 1 ? (
           <>
-            <b className="text-ink-2">{peers[0]!.name.split(' ')[0]}</b> está aquí
+            <b className="text-ink-2">{firstNames[0]}</b> está aquí
+          </>
+        ) : peers.length === 2 ? (
+          <>
+            <b className="text-ink-2">{firstNames[0]}</b> y{' '}
+            <b className="text-ink-2">{firstNames[1]}</b>
           </>
         ) : (
           <>
-            <b className="text-ink-2">{peers[0]!.name.split(' ')[0]}</b>
-            {peers.length === 2 ? ` y ${peers[1]!.name.split(' ')[0]}` : ` y ${peers.length - 1} más`}
+            <b className="text-ink-2">{firstNames[0]}</b> y {peers.length - 1} más
           </>
         )}
       </span>

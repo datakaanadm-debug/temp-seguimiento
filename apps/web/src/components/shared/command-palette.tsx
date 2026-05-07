@@ -1,13 +1,24 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Command } from 'cmdk'
+import { useQuery } from '@tanstack/react-query'
 import { Icon, type IconName } from '@/components/ui/icon'
 import { Kbd } from '@/components/ui/primitives'
 import { useUiStore } from '@/lib/stores/ui-store'
 import { useAuth } from '@/providers/auth-provider'
+import { apiClient } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
+
+interface SearchResult {
+  type: 'task' | 'project' | 'person' | 'okr'
+  id: string
+  title: string
+  subtitle: string
+  url: string
+  icon: IconName
+}
 
 type Section = 'Acciones rápidas' | 'Ir a' | 'Herramientas'
 
@@ -27,6 +38,31 @@ export function CommandPalette() {
   const open = useUiStore((s) => s.commandPaletteOpen)
   const setOpen = useUiStore((s) => s.setCommandPaletteOpen)
   const { user } = useAuth()
+
+  // Búsqueda con debounce 200ms — el query backend es ligero pero no
+  // queremos pegarle por cada keystroke.
+  const [query, setQuery] = useState('')
+  const [debounced, setDebounced] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query.trim()), 200)
+    return () => clearTimeout(t)
+  }, [query])
+
+  // Reset el query al cerrar la palette
+  useEffect(() => {
+    if (!open) setQuery('')
+  }, [open])
+
+  const { data: searchData, isFetching } = useQuery({
+    queryKey: ['cmdk-search', debounced],
+    queryFn: () =>
+      apiClient.get<{ results: SearchResult[] }>('/api/v1/search', {
+        searchParams: { q: debounced },
+      }),
+    enabled: open && debounced.length >= 2,
+    staleTime: 30_000,
+  })
+  const searchResults: SearchResult[] = searchData?.results ?? []
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -229,10 +265,17 @@ export function CommandPalette() {
         <div className="flex items-center gap-3 border-b border-paper-line-soft px-4 py-3">
           <Icon.Search size={15} className="text-ink-3" />
           <Command.Input
-            placeholder="Escribe un comando o busca…"
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Escribe un comando o busca tareas, personas, OKRs…"
             className="flex-1 bg-transparent text-[14px] text-ink outline-none placeholder:text-ink-3"
             autoFocus
           />
+          {isFetching && (
+            <span className="font-mono text-[10px] text-ink-3" aria-label="Buscando">
+              …
+            </span>
+          )}
           <Kbd>ESC</Kbd>
         </div>
 
@@ -240,6 +283,34 @@ export function CommandPalette() {
           <Command.Empty className="py-10 text-center text-[13px] text-ink-3">
             Sin resultados. Intenta otra palabra.
           </Command.Empty>
+
+          {searchResults.length > 0 && (
+            <Command.Group
+              heading="Resultados"
+              className="px-1.5 pt-2 font-mono text-[10px] font-semibold uppercase tracking-[0.6px] text-ink-3 first:pt-0 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1"
+            >
+              {searchResults.map((r) => {
+                const IconC = Icon[r.icon] ?? Icon.Search
+                return (
+                  <Command.Item
+                    key={`${r.type}-${r.id}`}
+                    onSelect={() => run(() => router.push(r.url))}
+                    value={`${r.title} ${r.subtitle} ${r.type}`}
+                    className={cn(
+                      'flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-[13px] text-ink',
+                      'aria-selected:bg-primary-soft aria-selected:text-primary-ink',
+                    )}
+                  >
+                    <IconC size={15} className="shrink-0 text-ink-3 aria-selected:text-primary-ink" />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate">{r.title}</span>
+                      <span className="font-mono text-[10.5px] text-ink-3">{r.subtitle}</span>
+                    </div>
+                  </Command.Item>
+                )
+              })}
+            </Command.Group>
+          )}
 
           {Object.entries(grouped).map(([section, items]) => (
             <Command.Group

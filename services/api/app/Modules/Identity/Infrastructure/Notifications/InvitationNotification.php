@@ -21,14 +21,17 @@ final class InvitationNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public string $queue = 'notifications';
-
     public function __construct(
         public readonly Invitation $invitation,
         public readonly Tenant $tenant,
         public readonly string $plainToken,
         public readonly string $inviterName,
     ) {}
+
+    public function viaQueues(): array
+    {
+        return ['mail' => 'notifications'];
+    }
 
     public function via(mixed $notifiable): array
     {
@@ -43,15 +46,20 @@ final class InvitationNotification extends Notification implements ShouldQueue
             . "&email=" . urlencode($this->invitation->email);
 
         $roleLabel = $this->invitation->role->label();
-        $expires = $this->invitation->expires_at->locale('es')->isoFormat('LLL');
+        $expiresAt = $this->invitation->expires_at->locale('es')->isoFormat('LLL');
 
+        // Vista HTML con branding del tenant (logo, brand_primary, brand_dark).
+        // Fallback a MailMessage default si la vista falla (defensivo).
         return (new MailMessage())
             ->subject("Te invitaron a {$this->tenant->name} en Interna")
-            ->greeting("Hola,")
-            ->line("{$this->inviterName} te invitó a unirte a {$this->tenant->name} en Interna como {$roleLabel}.")
-            ->action('Aceptar invitación', $acceptUrl)
-            ->line("Esta invitación expira el {$expires}.")
-            ->line('Si no esperabas este correo, puedes ignorarlo.');
+            ->view('emails.invitation', [
+                'tenant' => $this->tenant,
+                'invitation' => $this->invitation,
+                'inviterName' => $this->inviterName,
+                'roleLabel' => $roleLabel,
+                'acceptUrl' => $acceptUrl,
+                'expiresAt' => $expiresAt,
+            ]);
     }
 
     /**

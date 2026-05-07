@@ -111,4 +111,43 @@ final class AuthController extends Controller
     {
         return response()->json(['ok' => true]);
     }
+
+    /**
+     * POST /api/v1/auth/me/tour-complete
+     *
+     * Marca el tour de bienvenida como completado para el user actual.
+     * Idempotente: si ya estaba completado, no falla.
+     */
+    public function completeTour(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) abort(401);
+
+        if (!$user->tour_completed_at) {
+            $user->tour_completed_at = now();
+            $user->save();
+        }
+
+        return response()->json([
+            'user' => UserResource::make($user->fresh())->resolve(),
+        ]);
+    }
+
+    /**
+     * POST /api/v1/auth/me/tour-reset
+     *
+     * Vuelve a habilitar el tour para que se muestre de nuevo (botón "Hacer tour").
+     */
+    public function resetTour(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) abort(401);
+
+        $user->tour_completed_at = null;
+        $user->save();
+
+        return response()->json([
+            'user' => UserResource::make($user->fresh())->resolve(),
+        ]);
+    }
 }

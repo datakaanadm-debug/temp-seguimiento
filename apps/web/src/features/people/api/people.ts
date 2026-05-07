@@ -21,6 +21,12 @@ export async function upsertInternData(profileId: string, fields: Record<string,
   return apiClient.put<DataEnvelope<any>>(`/api/v1/profiles/${profileId}/intern-data`, fields)
 }
 
+export async function markInternHired(profileId: string) {
+  return apiClient.post<DataEnvelope<Profile> & { meta?: { was_first_time: boolean } }>(
+    `/api/v1/profiles/${profileId}/mark-hired`,
+  )
+}
+
 // Mentor assignments
 export async function listMentorAssignments(params: { status?: string; intern_user_id?: string; mentor_user_id?: string } = {}) {
   return apiClient.get<PaginatedResponse<MentorAssignment>>('/api/v1/mentor-assignments', { searchParams: params as any })

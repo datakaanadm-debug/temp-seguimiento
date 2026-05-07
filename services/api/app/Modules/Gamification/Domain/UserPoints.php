@@ -15,7 +15,7 @@ class UserPoints extends BaseModel
 
     protected $fillable = [
         'tenant_id', 'user_id', 'total_points',
-        'streak_days', 'best_streak', 'last_activity_date', 'level',
+        'streak_days', 'best_streak', 'last_activity_date', 'level', 'metadata',
     ];
 
     protected $casts = [
@@ -23,5 +23,10 @@ class UserPoints extends BaseModel
         'streak_days' => 'integer',
         'best_streak' => 'integer',
         'last_activity_date' => 'date',
+        'metadata' => 'array',
+    ];
+
+    protected $attributes = [
+        'metadata' => '{}',
     ];
 }

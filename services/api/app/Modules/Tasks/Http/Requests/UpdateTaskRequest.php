@@ -24,7 +24,12 @@ final class UpdateTaskRequest extends FormRequest
             'due_at' => ['sometimes', 'nullable', 'date'],
             'estimated_minutes' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
             'list_id' => ['sometimes', 'nullable', 'uuid', 'exists:task_lists,id'],
+            'key_result_id' => ['sometimes', 'nullable', 'uuid', 'exists:key_results,id'],
             'position' => ['sometimes', 'integer', 'min:0'],
+            'tag_ids' => ['sometimes', 'array', 'max:20'],
+            'tag_ids.*' => ['uuid', 'exists:tags,id'],
+            'collaborator_ids' => ['sometimes', 'array', 'max:15'],
+            'collaborator_ids.*' => ['uuid', 'exists:users,id'],
         ];
     }
 }

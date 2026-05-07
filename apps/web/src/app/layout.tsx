@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter_Tight, Instrument_Serif, JetBrains_Mono } from 'next/font/google'
-import { Toaster } from 'sonner'
+import { ToasterClient } from '@/components/shared/toaster-client'
 import { QueryProvider } from '@/providers/query-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { NuqsAdapter } from 'nuqs/adapters/next/app'
@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
           </QueryProvider>
         </NuqsAdapter>
-        <Toaster position="top-right" richColors closeButton />
+        <ToasterClient />
       </body>
     </html>
   )

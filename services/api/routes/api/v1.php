@@ -15,6 +15,15 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', fn () => response()->json(['ok' => true, 'time' => now()->toIso8601String()]))
     ->name('health');
 
+// Presence (lightweight heartbeat-based, TTL 60s)
+Route::middleware(['tenant', 'auth:sanctum', 'tenant.member'])->group(function () {
+    Route::post('/presence/heartbeat', [\App\Http\Controllers\PresenceController::class, 'heartbeat'])
+        ->middleware('throttle:60,1')
+        ->name('presence.heartbeat');
+    Route::get('/presence', [\App\Http\Controllers\PresenceController::class, 'peers'])
+        ->name('presence.peers');
+});
+
 // Módulos
 require app_path('Modules/Identity/Http/routes.php');
 require app_path('Modules/Organization/Http/routes.php');
@@ -29,3 +38,6 @@ require app_path('Modules/Mentorship/Http/routes.php');
 require app_path('Modules/Onboarding/Http/routes.php');
 require app_path('Modules/Okrs/Http/routes.php');
 require app_path('Modules/Gamification/Http/routes.php');
+require app_path('Modules/Calendar/Http/routes.php');
+require app_path('Modules/Automation/Http/routes.php');
+require app_path('Modules/Search/Http/routes.php');

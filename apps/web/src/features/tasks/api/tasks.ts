@@ -22,6 +22,7 @@ export interface CreateTaskInput {
   project_id: string
   list_id?: string | null
   parent_task_id?: string | null
+  key_result_id?: string | null
   title: string
   description?: string | null
   priority?: TaskPriority
@@ -45,7 +46,10 @@ export interface UpdateTaskInput {
   due_at?: string | null
   estimated_minutes?: number | null
   list_id?: string | null
+  key_result_id?: string | null
   position?: number
+  tag_ids?: string[]
+  collaborator_ids?: string[]
 }
 
 export async function updateTask(id: string, input: UpdateTaskInput): Promise<DataEnvelope<Task>> {
@@ -93,9 +97,28 @@ export async function addComment(taskId: string, body: string, parent_comment_id
   })
 }
 
+export async function updateComment(commentId: string, body: string) {
+  return apiClient.patch<DataEnvelope<Comment>>(`/api/v1/comments/${commentId}`, { body })
+}
+
+export async function deleteComment(commentId: string) {
+  return apiClient.delete<{ ok: true }>(`/api/v1/comments/${commentId}`)
+}
+
 // ─── Attachments ───
 export async function listAttachments(taskId: string): Promise<{ data: Attachment[] }> {
   return apiClient.get(`/api/v1/tasks/${taskId}/attachments`)
+}
+
+/** Upload directo multipart (para dev con disk local). */
+export async function uploadTaskAttachment(taskId: string, file: File) {
+  const fd = new FormData()
+  fd.append('file', file)
+  return apiClient.post<DataEnvelope<Attachment>>(`/api/v1/tasks/${taskId}/attachments/upload`, fd)
+}
+
+export async function deleteAttachment(attachmentId: string) {
+  return apiClient.delete<{ ok: true }>(`/api/v1/attachments/${attachmentId}`)
 }
 
 export async function presignAttachmentUpload(

@@ -27,19 +27,28 @@ export default function RolesPage() {
     <div>
       <SectionTitle
         kicker="Workspace · RBAC"
-        title="Roles y permisos"
+        title="Roles del sistema (lectura)"
         sub={
           isLoading
             ? 'Cargando…'
             : `${roles.length} roles activos · ${totalMembers} usuarios asignados`
         }
         right={
-          <button className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2">
-            <Icon.Plus size={13} />
-            Nuevo rol personalizado
-          </button>
+          <PaperBadge tone="neutral" className="!text-[10.5px]">
+            Solo lectura
+          </PaperBadge>
         }
       />
+
+      <div className="mb-4 flex items-start gap-2.5 rounded-md border border-paper-line bg-paper-bg-2 p-3 text-[12.5px] text-ink-2">
+        <Icon.AlertTriangle size={14} className="mt-0.5 shrink-0 text-ink-3" />
+        <div>
+          <b className="text-ink">Roles fijos del sistema.</b> Los 6 roles y la matriz de
+          permisos están definidos a nivel de plataforma y no se pueden editar desde aquí.
+          Esta vista te permite consultar quién puede hacer qué dentro del workspace.
+          Si necesitas roles personalizados o ajustar permisos por tenant, contacta a soporte.
+        </div>
+      </div>
 
       {isLoading ? (
         <Skeleton className="h-96 w-full" />
@@ -75,9 +84,7 @@ export default function RolesPage() {
                   </p>
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-mono text-ink-3">{r.members} miembros</span>
-                    <button className="rounded-md border border-paper-line bg-paper-surface px-2 py-[3px] text-[11px] text-ink-2 hover:border-paper-line-soft">
-                      {r.is_system ? 'Ver' : 'Editar'}
-                    </button>
+                    <span className="font-mono text-[10px] text-ink-muted">{r.id}</span>
                   </div>
                 </div>
               )

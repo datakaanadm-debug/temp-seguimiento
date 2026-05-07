@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api-client'
 import { config } from '@/lib/config'
-import type { Tenant, User } from '@/types/api'
+import type { Invitation, MembershipRole, PaginatedResponse, Tenant, User } from '@/types/api'
 
 async function ensureCsrfCookie(): Promise<void> {
   await fetch(`${config.apiUrl.replace(/\/+$/, '')}/sanctum/csrf-cookie`, {
@@ -67,6 +67,16 @@ export async function updateTenant(input: UpdateTenantInput): Promise<{ tenant: 
   return apiClient.put('/api/v1/tenant', input)
 }
 
+export async function uploadTenantLogo(file: File): Promise<{ tenant: Tenant; logo_url: string }> {
+  const fd = new FormData()
+  fd.append('file', file)
+  return apiClient.post('/api/v1/tenant/logo', fd)
+}
+
+export async function removeTenantLogo(): Promise<{ tenant: Tenant }> {
+  return apiClient.delete('/api/v1/tenant/logo')
+}
+
 // ── Roles ─────────────────────────────────────────────────────────────
 export interface RoleInfo {
   id: string
@@ -84,4 +94,27 @@ export interface RolePermission {
 
 export async function getRoles(): Promise<{ data: { roles: RoleInfo[]; permissions: RolePermission[] } }> {
   return apiClient.get('/api/v1/roles')
+}
+
+// ── Invitations ───────────────────────────────────────────────────────
+export interface InviteUserInput {
+  email: string
+  role: MembershipRole
+  team_id?: string | null
+  mentor_id?: string | null
+  expires_in_hours?: number
+}
+
+export async function listInvitations(
+  params: { status?: 'pending' } = {},
+): Promise<PaginatedResponse<Invitation>> {
+  return apiClient.get('/api/v1/invitations', { searchParams: params })
+}
+
+export async function inviteUser(input: InviteUserInput): Promise<{ invitation: Invitation }> {
+  return apiClient.post('/api/v1/invitations', input)
+}
+
+export async function revokeInvitation(id: string): Promise<{ invitation: Invitation }> {
+  return apiClient.delete(`/api/v1/invitations/${id}`)
 }

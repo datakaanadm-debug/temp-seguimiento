@@ -48,7 +48,7 @@ final class DepartmentController extends Controller
     public function store(CreateDepartmentRequest $request): JsonResponse
     {
         $department = $this->createHandler->handle(new CreateDepartment(
-            name: $request->string('name'),
+            name: (string) $request->string('name'),
             slug: strtolower((string) $request->string('slug')),
             actor: $request->user(),
             position: (int) $request->integer('position', 0),

@@ -89,12 +89,12 @@ final class DailyReportController extends Controller
     {
         $report = $this->upsertHandler->handle(new UpsertDailyReport(
             user: $request->user(),
-            reportDate: $request->string('report_date', now()->toDateString()),
-            progressSummary: $request->string('progress_summary'),
+            reportDate: (string) $request->string('report_date', now()->toDateString()),
+            progressSummary: (string) $request->string('progress_summary'),
             submit: (bool) $request->boolean('submit', true),
-            blockersText: $request->string('blockers_text') ?: null,
-            planTomorrow: $request->string('plan_tomorrow') ?: null,
-            mood: $request->string('mood') ?: null,
+            blockersText: $request->filled('blockers_text') ? (string) $request->string('blockers_text') : null,
+            planTomorrow: $request->filled('plan_tomorrow') ? (string) $request->string('plan_tomorrow') : null,
+            mood: $request->filled('mood') ? (string) $request->string('mood') : null,
             hoursWorked: $request->has('hours_worked') ? (float) $request->input('hours_worked') : null,
         ));
 

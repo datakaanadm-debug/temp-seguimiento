@@ -66,16 +66,73 @@ final class AttachmentController extends Controller
         $attachment = $this->registerHandler->handle(new RegisterAttachment(
             taskId: $task->id,
             user: $request->user(),
-            storedKey: $request->string('stored_key'),
-            originalName: $request->string('original_name'),
-            mimeType: $request->string('mime_type'),
+            storedKey: (string) $request->string('stored_key'),
+            originalName: (string) $request->string('original_name'),
+            mimeType: (string) $request->string('mime_type'),
             sizeBytes: (int) $request->integer('size_bytes'),
-            checksumSha256: $request->string('checksum_sha256') ?: null,
+            checksumSha256: $request->filled('checksum_sha256') ? (string) $request->string('checksum_sha256') : null,
         ));
 
         return response()->json([
             'data' => AttachmentResource::make($attachment->load('uploader'))->resolve(),
         ], 201);
+    }
+
+    /**
+     * POST /api/v1/tasks/{task}/attachments/upload
+     *
+     * Upload directo multipart (para dev con disk local). En prod con R2 se
+     * prefiere el flujo presign → register para no proxy-ear bytes.
+     */
+    public function upload(Task $task, Request $request): JsonResponse
+    {
+        $this->authorize('update', $task);
+
+        $request->validate([
+            'file' => ['required', 'file', 'max:10240'], // 10 MB
+        ]);
+
+        $file = $request->file('file');
+        $tenantId = \App\Shared\Tenancy\TenantContext::currentId();
+        $storedKey = sprintf(
+            'tasks/%s/%s/%s-%s',
+            $tenantId,
+            $task->id,
+            (string) \App\Shared\Support\Uuid::v7(),
+            preg_replace('/[^a-zA-Z0-9._-]/', '_', (string) $file->getClientOriginalName()),
+        );
+
+        \Illuminate\Support\Facades\Storage::put($storedKey, file_get_contents($file->getRealPath()));
+
+        $attachment = \App\Modules\Tasks\Domain\Attachment::create([
+            'tenant_id' => $tenantId,
+            'attachable_type' => Task::class,
+            'attachable_id' => $task->id,
+            'uploaded_by' => $request->user()->id,
+            'original_name' => (string) $file->getClientOriginalName(),
+            'stored_key' => $storedKey,
+            'mime_type' => (string) ($file->getMimeType() ?? 'application/octet-stream'),
+            'size_bytes' => (int) $file->getSize(),
+            'metadata' => [],
+        ]);
+
+        return response()->json([
+            'data' => AttachmentResource::make($attachment->load('uploader'))->resolve(),
+        ], 201);
+    }
+
+    public function download(Attachment $attachment, Request $request): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        if ($attachment->attachable_type !== Task::class) {
+            abort(404);
+        }
+        $task = Task::findOrFail($attachment->attachable_id);
+        $this->authorize('view', $task);
+
+        return \Illuminate\Support\Facades\Storage::download(
+            $attachment->stored_key,
+            $attachment->original_name,
+        );
     }
 
     public function destroy(Attachment $attachment, Request $request): JsonResponse

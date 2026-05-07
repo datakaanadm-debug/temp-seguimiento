@@ -97,16 +97,17 @@ final class TaskController extends Controller
     public function store(CreateTaskRequest $request): JsonResponse
     {
         $task = $this->createHandler->handle(new CreateTask(
-            projectId: $request->string('project_id'),
-            title: $request->string('title'),
+            projectId: (string) $request->string('project_id'),
+            title: (string) $request->string('title'),
             actor: $request->user(),
-            listId: $request->string('list_id') ?: null,
-            parentTaskId: $request->string('parent_task_id') ?: null,
-            description: $request->string('description') ?: null,
-            priority: $request->string('priority', 'normal'),
-            assigneeId: $request->string('assignee_id') ?: null,
-            reviewerId: $request->string('reviewer_id') ?: null,
-            dueAt: $request->string('due_at') ?: null,
+            listId: $request->filled('list_id') ? (string) $request->string('list_id') : null,
+            parentTaskId: $request->filled('parent_task_id') ? (string) $request->string('parent_task_id') : null,
+            keyResultId: $request->filled('key_result_id') ? (string) $request->string('key_result_id') : null,
+            description: $request->filled('description') ? (string) $request->string('description') : null,
+            priority: (string) $request->string('priority', 'normal'),
+            assigneeId: $request->filled('assignee_id') ? (string) $request->string('assignee_id') : null,
+            reviewerId: $request->filled('reviewer_id') ? (string) $request->string('reviewer_id') : null,
+            dueAt: $request->filled('due_at') ? (string) $request->string('due_at') : null,
             estimatedMinutes: $request->has('estimated_minutes')
                 ? (int) $request->integer('estimated_minutes') : null,
             tagIds: (array) $request->input('tag_ids', []),
@@ -139,9 +140,9 @@ final class TaskController extends Controller
         try {
             $task = $this->stateHandler->handle(new ChangeTaskState(
                 taskId: $task->id,
-                targetState: $request->string('state'),
+                targetState: (string) $request->string('state'),
                 actor: $request->user(),
-                reason: $request->string('reason') ?: null,
+                reason: $request->filled('reason') ? (string) $request->string('reason') : null,
             ));
         } catch (InvalidTaskTransition $e) {
             throw ValidationException::withMessages(['state' => $e->getMessage()]);

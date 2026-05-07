@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,8 +22,22 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-export function AcceptInvitationForm({ token, email }: { token: string; email: string }) {
+export function AcceptInvitationForm({
+  token,
+  email,
+  tenantSlug,
+}: {
+  token: string
+  email: string
+  tenantSlug?: string
+}) {
   const [accepted, setAccepted] = useState(false)
+
+  useEffect(() => {
+    if (tenantSlug) {
+      document.cookie = `tenant_slug=${tenantSlug}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`
+    }
+  }, [tenantSlug])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),

@@ -11,6 +11,9 @@ import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/providers/auth-provider'
 import { cn } from '@/lib/utils'
 import { getChecklist, toggleItem } from '@/features/onboarding/api/onboarding'
+import { NewOnboardingItemDialog } from '@/features/onboarding/components/new-item-dialog'
+import { ItemAttachments } from '@/features/onboarding/components/item-attachments'
+import { Can } from '@/components/shared/can'
 import type { PaginatedResponse, Profile } from '@/types/api'
 
 export default function OnboardingPage() {
@@ -19,6 +22,7 @@ export default function OnboardingPage() {
   const isIntern = user?.role === 'intern'
 
   const [internUserId, setInternUserId] = useQueryState('intern_id', parseAsString)
+  const [newItemOpen, setNewItemOpen] = useState(false)
 
   // Lista de practicantes para picker (admin/hr)
   const { data: internsData } = useQuery({
@@ -73,13 +77,21 @@ export default function OnboardingPage() {
   return (
     <div className="mx-auto max-w-[1060px] px-7 py-5 pb-10">
       <SectionTitle
-        kicker={`Onboarding${isIntern ? '' : ` · ${internName}`}`}
+        kicker={
+          checklist?.cohort
+            ? `Onboarding · Cohorte ${checklist.cohort}`
+            : `Onboarding${isIntern ? '' : ` · ${internName}`}`
+        }
         title="Checklist de ingreso"
         sub={
           isLoading
             ? 'Cargando…'
             : checklist
-              ? `${checklist.done} de ${checklist.total} pasos completados`
+              ? `${checklist.done} de ${checklist.total} pasos completados${
+                  checklist.mentor?.first_name
+                    ? ` · asignada mentor${checklist.mentor.first_name.endsWith('a') ? 'a' : ''} ${checklist.mentor.first_name}`
+                    : ''
+                }`
               : ''
         }
         right={
@@ -97,13 +109,42 @@ export default function OnboardingPage() {
                 ))}
               </select>
             )}
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
-              <Icon.Attach size={12} />
-              Exportar PDF
-            </button>
+            {checklist && checklist.progress_percent < 100 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = checklist.groups.flatMap((g) => g.items).find((it) => !it.done)
+                  if (next) toggle.mutate(next.id)
+                }}
+                disabled={toggle.isPending}
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2 disabled:opacity-50"
+              >
+                <Icon.Check size={13} />
+                Completar siguiente
+              </button>
+            )}
+            <Can capability="manage_onboarding_template">
+              <button
+                type="button"
+                onClick={() => setNewItemOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft"
+              >
+                <Icon.Plus size={12} />
+                Añadir paso
+              </button>
+            </Can>
           </>
         }
       />
+
+      {effectiveInternId && (
+        <NewOnboardingItemDialog
+          open={newItemOpen}
+          onOpenChange={setNewItemOpen}
+          internUserId={effectiveInternId}
+          existingGroups={(checklist?.groups ?? []).map((g) => ({ name: g.name, order: g.order }))}
+        />
+      )}
 
       {isLoading || !checklist ? (
         <Skeleton className="h-96 w-full" />
@@ -144,12 +185,22 @@ export default function OnboardingPage() {
               <div className="mb-1 font-serif text-[22px] tracking-tight">
                 {checklist.progress_percent === 100
                   ? 'Onboarding completado 🎉'
-                  : 'Avanza paso a paso'}
+                  : checklist.progress_percent >= 70
+                    ? 'Ya casi terminas tu onboarding'
+                    : 'Avanza paso a paso'}
               </div>
               <div className="text-[13px] text-ink-2">
-                {checklist.progress_percent === 100
-                  ? 'Todos los pasos están listos. ¡Éxito con tus primeros proyectos!'
-                  : `Faltan ${checklist.total - checklist.done} pasos — cada uno toma entre 5 y 20 min.`}
+                {(() => {
+                  if (checklist.progress_percent === 100) {
+                    return 'Todos los pasos están listos. ¡Éxito con tus primeros proyectos!'
+                  }
+                  const remainingItems = checklist.groups.flatMap((g) => g.items).filter((i) => !i.done)
+                  if (remainingItems.length > 0 && remainingItems.length <= 3) {
+                    const titles = remainingItems.map((i) => i.title).join(', ')
+                    return `Faltan ${remainingItems.length} pasos para desbloquear acceso completo: ${titles}.`
+                  }
+                  return `Faltan ${checklist.total - checklist.done} pasos — cada uno toma entre 5 y 20 min.`
+                })()}
               </div>
               <div className="mt-2.5 flex gap-1.5">
                 {Array.from({ length: checklist.total }).map((_, i) => (
@@ -165,8 +216,12 @@ export default function OnboardingPage() {
             </div>
             <div className="text-center">
               <div className="font-mono text-[11px] text-ink-3">DÍA</div>
-              <div className="font-serif text-[38px] leading-none">12</div>
-              <div className="font-mono text-[11px] text-ink-3">de 90</div>
+              <div className="font-serif text-[38px] leading-none">
+                {checklist.day_number ?? '—'}
+              </div>
+              <div className="font-mono text-[11px] text-ink-3">
+                de {checklist.total_days}
+              </div>
             </div>
           </div>
 
@@ -186,63 +241,83 @@ export default function OnboardingPage() {
                   </span>
                 </div>
                 <div className="overflow-hidden rounded-lg border border-paper-line bg-paper-raised">
-                  {g.items.map((it, ii) => (
-                    <label
-                      key={it.id}
-                      className={cn(
-                        'grid cursor-pointer items-center gap-3 px-3.5 py-2.5 transition hover:bg-paper-bg-2',
-                        ii < g.items.length - 1 && 'border-b border-paper-line-soft',
-                        toggle.isPending && 'opacity-50',
-                      )}
-                      style={{ gridTemplateColumns: '24px 1fr auto auto' }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={it.done}
-                        disabled={toggle.isPending}
-                        onChange={() => toggle.mutate(it.id)}
-                        className="h-4 w-4 accent-primary"
-                      />
-                      <div>
-                        <div
-                          className={cn(
-                            'text-[13px]',
-                            it.done ? 'text-ink-3 line-through' : 'text-ink',
+                  {g.items.map((it, ii) => {
+                    const responsibleIsIntern =
+                      it.responsible_role &&
+                      /practicante|intern/i.test(it.responsible_role)
+                    const canUpload =
+                      effectiveInternId != null &&
+                      ((isIntern && responsibleIsIntern) || !isIntern)
+                    return (
+                      <div
+                        key={it.id}
+                        className={cn(
+                          'grid gap-3 px-3.5 py-2.5 transition',
+                          ii < g.items.length - 1 && 'border-b border-paper-line-soft',
+                          toggle.isPending && 'opacity-50',
+                        )}
+                        style={{ gridTemplateColumns: '24px 1fr auto auto' }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={it.done}
+                          disabled={toggle.isPending}
+                          onChange={() => toggle.mutate(it.id)}
+                          className="mt-[3px] h-4 w-4 cursor-pointer accent-primary"
+                        />
+                        <div>
+                          <div
+                            className={cn(
+                              'text-[13px]',
+                              it.done ? 'text-ink-3 line-through' : 'text-ink',
+                            )}
+                          >
+                            {it.title}
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-ink-3">
+                            {it.responsible_role && (
+                              <>
+                                Responsable: <b className="text-ink-2">{it.responsible_role}</b>
+                              </>
+                            )}
+                            {it.due_at && (
+                              <>
+                                {' · vence '}
+                                <b className="text-ink-2">
+                                  {new Date(it.due_at).toLocaleDateString('es-MX', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                  })}
+                                </b>
+                              </>
+                            )}
+                          </div>
+                          {effectiveInternId && (responsibleIsIntern || !isIntern) && (
+                            <ItemAttachments
+                              itemId={it.id}
+                              internUserId={effectiveInternId}
+                              canUpload={!!canUpload}
+                            />
                           )}
-                        >
-                          {it.title}
                         </div>
-                        <div className="mt-0.5 text-[11px] text-ink-3">
-                          {it.responsible_role && (
-                            <>
-                              Responsable: <b className="text-ink-2">{it.responsible_role}</b>
-                            </>
-                          )}
-                          {it.due_at && (
-                            <>
-                              {' · vence '}
-                              <b className="text-ink-2">
-                                {new Date(it.due_at).toLocaleDateString('es-MX', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                })}
-                              </b>
-                            </>
-                          )}
-                        </div>
+                        {!it.done && it.due_at && isOverdue(it.due_at) && (
+                          <PaperBadge tone="warn" className="!text-[10px]">
+                            vencido
+                          </PaperBadge>
+                        )}
+                        {!it.done && it.due_at && !isOverdue(it.due_at) && (
+                          <PaperBadge tone="neutral" className="!text-[10px]">
+                            pendiente
+                          </PaperBadge>
+                        )}
+                        {it.done ? (
+                          <Icon.Check size={14} className="text-success" />
+                        ) : (
+                          <Icon.Chev size={12} className="text-ink-muted" />
+                        )}
                       </div>
-                      {it.due_at && !it.done && isOverdue(it.due_at) && (
-                        <PaperBadge tone="warn" className="!text-[10px]">
-                          vencido
-                        </PaperBadge>
-                      )}
-                      {it.done ? (
-                        <Icon.Check size={14} className="text-success" />
-                      ) : (
-                        <Icon.Chev size={12} className="text-ink-muted" />
-                      )}
-                    </label>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )

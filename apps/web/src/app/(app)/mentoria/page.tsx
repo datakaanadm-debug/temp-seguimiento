@@ -21,6 +21,8 @@ import {
   toggleGrowthGoal,
   type MentorSession,
 } from '@/features/mentorship/api/mentorship'
+import { NewSessionDialog } from '@/features/mentorship/components/new-session-dialog'
+import { Can } from '@/components/shared/can'
 import type { PaginatedResponse, Profile } from '@/types/api'
 
 export default function MentoriaPage() {
@@ -32,18 +34,47 @@ export default function MentoriaPage() {
   const [internUserId, setInternUserId] = useQueryState('intern_id', parseAsString)
 
   const isIntern = user?.role === 'intern'
+  const isMentor = user?.role === 'mentor'
   const effectiveInternId = isIntern ? user?.id ?? null : internUserId
 
-  // Lista de practicantes (para picker)
+  // Para mentor: solo sus asignados (via mentor_assignments).
+  // Para staff (admin/hr/team_lead): todos los practicantes del tenant.
+  const { data: mentorAssignmentsData } = useQuery({
+    queryKey: ['mentor-assignments-mine', user?.id],
+    queryFn: () =>
+      apiClient.get<{ data: Array<{ intern?: { id: string; name: string | null; email: string; avatar_url: string | null } }> }>(
+        '/api/v1/mentor-assignments',
+        { searchParams: { mentor_user_id: user!.id, status: 'active' } },
+      ),
+    enabled: !isIntern && isMentor && !!user?.id,
+  })
+
   const { data: internsData } = useQuery({
     queryKey: ['profiles-interns-simple'],
     queryFn: () =>
       apiClient.get<PaginatedResponse<Profile>>('/api/v1/profiles', {
         searchParams: { kind: 'intern', per_page: 50 },
       }),
-    enabled: !isIntern,
+    enabled: !isIntern && !isMentor,
   })
-  const interns = internsData?.data ?? []
+
+  // Unifica el shape para el picker: { user_id, user: { name, email } }
+  const interns = isMentor
+    ? (mentorAssignmentsData?.data ?? []).flatMap((a) =>
+        a.intern
+          ? [{
+              id: a.intern.id,
+              user_id: a.intern.id,
+              user: {
+                id: a.intern.id,
+                name: a.intern.name,
+                email: a.intern.email,
+                avatar_url: a.intern.avatar_url,
+              },
+            } as unknown as Profile]
+          : [],
+      )
+    : (internsData?.data ?? [])
 
   // Si admin aún no eligió, pre-selecciona el primero
   const resolvedInternId = effectiveInternId ?? interns[0]?.user_id ?? null
@@ -97,6 +128,7 @@ export default function MentoriaPage() {
 
   const [draftNote, setDraftNote] = useState('')
   const [isSavingNote, setIsSavingNote] = useState(false)
+  const [newSessionOpen, setNewSessionOpen] = useState(false)
 
   const currentNoteBody = privateNote?.body ?? draftNote
 
@@ -156,7 +188,11 @@ export default function MentoriaPage() {
     <div className="mx-auto max-w-[1200px] px-7 py-5 pb-10">
       <SectionTitle
         kicker="Mentoría"
-        title={`Sesiones 1:1 con ${nextSession?.mentor?.name?.split(' ')[0] ?? '—'}`}
+        title={
+          isIntern
+            ? `Tus sesiones 1:1${nextSession?.mentor?.name ? ` con ${nextSession.mentor.name.split(' ')[0]}` : ''}`
+            : `Seguimiento de ${internName ?? '—'}`
+        }
         sub={
           nextSession
             ? `Próxima sesión ${formatRelative(nextSession.scheduled_at)} · ${nextSession.duration_minutes} min`
@@ -177,16 +213,35 @@ export default function MentoriaPage() {
                 ))}
               </select>
             )}
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
-              <Icon.Cal size={13} />
-              Reprogramar
-            </button>
-            <button className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2">
-              <Icon.Plus size={13} />
-              Nueva sesión
-            </button>
+            {nextSession && (
+              <button
+                type="button"
+                onClick={() => setNewSessionOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft"
+              >
+                <Icon.Cal size={13} />
+                Reprogramar
+              </button>
+            )}
+            <Can capability="create_mentor_session">
+              <button
+                type="button"
+                onClick={() => setNewSessionOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+              >
+                <Icon.Plus size={13} />
+                Nueva sesión
+              </button>
+            </Can>
           </>
         }
+      />
+
+      <NewSessionDialog
+        open={newSessionOpen}
+        onOpenChange={setNewSessionOpen}
+        internUserId={resolvedInternId}
+        internName={internName}
       />
 
       <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 300px' }}>

@@ -1,15 +1,18 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
+import { useMutation } from '@tanstack/react-query'
 import { Icon } from '@/components/ui/icon'
 import { useAuth } from '@/providers/auth-provider'
 import { TonalAvatar } from '@/components/ui/primitives'
 import { cn } from '@/lib/utils'
+import { summarizeDailyReport } from '@/features/ai/api/ai'
 import { useTodayReport, useUpsertDailyReport } from '../hooks/use-daily-report'
+import { DailyReportAttachments } from './daily-report-attachments'
 import type { Mood } from '@/types/api'
 
 const schema = z.object({
@@ -105,6 +108,35 @@ export function DailyReportForm() {
   }
 
   const submitted = existing?.status === 'submitted' || existing?.status === 'reviewed'
+  const [aiSummary, setAiSummary] = useState<string | null>(null)
+
+  const summarize = useMutation({
+    mutationFn: async () => {
+      // Guarda borrador primero si no existe
+      let reportId = existing?.id
+      if (!reportId) {
+        const values = form.getValues()
+        if (!values.progress_summary || values.progress_summary.trim().length < 10) {
+          throw new Error('Escribe al menos los avances de hoy antes de resumir')
+        }
+        const saved = await upsert.mutateAsync({
+          ...values,
+          blockers_text: values.blockers_text || null,
+          plan_tomorrow: values.plan_tomorrow || null,
+          mood: values.mood ?? null,
+          hours_worked: values.hours_worked ?? null,
+          submit: false,
+        })
+        reportId = saved.data.id
+      }
+      return summarizeDailyReport(reportId)
+    },
+    onSuccess: (res) => {
+      setAiSummary(res.data.content)
+      toast.success('Resumen generado')
+    },
+    onError: (err: any) => toast.error(err?.message ?? 'No se pudo generar el resumen'),
+  })
   const selectedMood = form.watch('mood')
   const today = new Date().toLocaleDateString('es-MX', {
     weekday: 'long',
@@ -239,21 +271,38 @@ export function DailyReportForm() {
         </div>
       </div>
 
+      {aiSummary && (
+        <div className="mx-4 mb-3 rounded-md border border-paper-line-soft bg-paper-surface p-3">
+          <div className="mb-1.5 flex items-center gap-1.5">
+            <Icon.Sparkles size={12} className="text-primary" />
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.4px] text-ink-3">
+              Resumen generado por IA
+            </span>
+            <button
+              type="button"
+              onClick={() => setAiSummary(null)}
+              className="ml-auto text-[11px] text-ink-3 hover:text-ink"
+            >
+              Cerrar
+            </button>
+          </div>
+          <p className="whitespace-pre-wrap font-serif text-[13px] leading-[1.6] text-ink">
+            {aiSummary}
+          </p>
+        </div>
+      )}
+
       {/* Footer actions */}
-      <div className="flex items-center gap-2.5 border-t border-paper-line-soft p-4">
+      <div className="flex flex-wrap items-center gap-2.5 border-t border-paper-line-soft p-4">
+        <DailyReportAttachments reportId={existing?.id ?? null} />
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-[5px] text-[12px] text-ink-3 hover:bg-paper-bg-2 hover:text-ink"
-        >
-          <Icon.Attach size={12} />
-          Adjuntar
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-[5px] text-[12px] text-ink-3 hover:bg-paper-bg-2 hover:text-ink"
+          onClick={() => summarize.mutate()}
+          disabled={summarize.isPending || upsert.isPending}
+          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-[5px] text-[12px] text-ink-3 hover:bg-paper-bg-2 hover:text-ink disabled:opacity-50"
         >
           <Icon.Sparkles size={12} />
-          Resumir con IA
+          {summarize.isPending ? 'Resumiendo…' : 'Resumir con IA'}
         </button>
         <span className="ml-auto text-[11px] text-ink-3">
           {upsert.isPending ? 'Guardando…' : existing ? 'Guardado automático' : ''}

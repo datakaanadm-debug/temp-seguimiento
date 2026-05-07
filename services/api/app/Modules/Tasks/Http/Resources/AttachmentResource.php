@@ -7,6 +7,7 @@ namespace App\Modules\Tasks\Http\Resources;
 use App\Shared\Storage\TenantStorage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @mixin \App\Modules\Tasks\Domain\Attachment
@@ -21,9 +22,9 @@ final class AttachmentResource extends JsonResource
             'mime_type' => $this->mime_type,
             'size_bytes' => $this->size_bytes,
             'is_image' => $this->isImage(),
-            // URL pre-firmada de descarga generada en cada response (TTL 15 min).
-            // Opción: generar solo en endpoint específico si la lista es grande.
-            'download_url' => TenantStorage::temporaryUrl($this->stored_key, 900),
+            // Download URL: con R2 genera presigned URL (TTL 15 min).
+            // Con disk local (dev) sirve vía endpoint proxy que requiere auth.
+            'download_url' => $this->resolveDownloadUrl($this->stored_key, (string) $this->id),
             'uploaded_by' => $this->uploaded_by,
             'uploader' => $this->whenLoaded('uploader', fn () => [
                 'id' => $this->uploader?->id,
@@ -31,5 +32,16 @@ final class AttachmentResource extends JsonResource
             ]),
             'created_at' => $this->created_at->toIso8601String(),
         ];
+    }
+
+    private function resolveDownloadUrl(string $storedKey, string $attachmentId): string
+    {
+        // Si el default disk soporta temporaryUrl (S3/R2), úsalo.
+        try {
+            return Storage::temporaryUrl($storedKey, now()->addMinutes(15));
+        } catch (\Throwable) {
+            // Local disk: proxy vía endpoint autenticado
+            return route('attachments.download', ['attachment' => $attachmentId]);
+        }
     }
 }

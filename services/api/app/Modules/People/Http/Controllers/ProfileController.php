@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Http\Controllers;
 
+use App\Modules\Identity\Domain\Enums\MembershipRole;
 use App\Modules\People\Application\Commands\UpdateProfile;
 use App\Modules\People\Application\Commands\UpdateProfileHandler;
 use App\Modules\People\Application\Commands\UpsertInternData;
 use App\Modules\People\Application\Commands\UpsertInternDataHandler;
+use App\Modules\People\Domain\Enums\ProfileKind;
+use App\Modules\People\Domain\Events\InternHired;
 use App\Modules\People\Domain\Profile;
 use App\Modules\People\Http\Requests\UpdateProfileRequest;
 use App\Modules\People\Http\Requests\UpsertInternDataRequest;
@@ -39,6 +42,20 @@ final class ProfileController extends Controller
         if ($search = $request->query('q')) {
             $query->whereHas('user', fn ($q) => $q->where('name', 'ilike', "%{$search}%")
                 ->orWhere('email', 'ilike', "%{$search}%"));
+        }
+
+        // Filtro pragmático: ?can_mentor=true devuelve perfiles cuyos memberships
+        // tienen role en (mentor, team_lead, hr, tenant_admin) — cualquiera que
+        // en una organización real podría mentorear a un practicante.
+        if ($request->boolean('can_mentor')) {
+            $query->whereExists(function ($q) {
+                $q->select(\DB::raw(1))
+                    ->from('memberships as m')
+                    ->whereColumn('m.user_id', 'profiles.user_id')
+                    ->whereColumn('m.tenant_id', 'profiles.tenant_id')
+                    ->where('m.status', 'active')
+                    ->whereIn('m.role', ['mentor', 'team_lead', 'hr', 'tenant_admin']);
+            });
         }
 
         $profiles = $query->orderBy('created_at', 'desc')->paginate(20);
@@ -103,6 +120,48 @@ final class ProfileController extends Controller
 
         return response()->json([
             'data' => ProfileResource::make($updated->load(['user', 'internData', 'mentorData']))->resolve(),
+        ]);
+    }
+
+    /**
+     * POST /api/v1/profiles/{profile}/mark-hired
+     *
+     * Marca al practicante como contratado (graduado del programa, ahora empleado).
+     * Solo staff (admin/HR/team_lead). Idempotente: si ya estaba marcado,
+     * conserva el `hired_at` original. Dispara `InternHired` (otorga
+     * `legacy-intern` en gamification).
+     */
+    public function markHired(Profile $profile, Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        $role = $actor->primaryRole();
+        $allowed = in_array($role, [
+            MembershipRole::TenantAdmin,
+            MembershipRole::HR,
+            MembershipRole::TeamLead,
+        ], true);
+
+        if (!$allowed) {
+            abort(403, 'Solo staff puede marcar a un practicante como contratado.');
+        }
+
+        if ($profile->kind !== ProfileKind::Intern) {
+            abort(422, 'Solo se puede marcar como contratado a un practicante.');
+        }
+
+        $isFirstTime = $profile->hired_at === null;
+
+        if ($isFirstTime) {
+            $profile->hired_at = now();
+            $profile->save();
+            event(new InternHired($profile->fresh(), $actor));
+        }
+
+        return response()->json([
+            'data' => ProfileResource::make(
+                $profile->fresh()->load(['user', 'internData', 'mentorData']),
+            )->resolve(),
+            'meta' => ['was_first_time' => $isFirstTime],
         ]);
     }
 

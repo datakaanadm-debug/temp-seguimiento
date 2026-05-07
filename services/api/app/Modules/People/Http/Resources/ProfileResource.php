@@ -18,15 +18,27 @@ final class ProfileResource extends JsonResource
         $isSelf = $actor?->id === $this->user_id;
         $isStaff = $actor?->primaryRole()?->isStaff() ?? false;
 
+        // Resolver el rol efectivo desde memberships (fuente de verdad: role, no kind)
+        $membership = \DB::table('memberships')
+            ->where('tenant_id', $this->tenant_id)
+            ->where('user_id', $this->user_id)
+            ->where('status', 'active')
+            ->first();
+        $role = $membership?->role;
+        $roleLabel = $role ? $this->roleLabel($role) : null;
+
         $base = [
             'id' => $this->id,
             'user_id' => $this->user_id,
             'kind' => $this->kind->value,
             'kind_label' => $this->kind->label(),
+            'role' => $role,
+            'role_label' => $roleLabel,
             'bio' => $this->bio,
             'position_title' => $this->position_title,
             'start_date' => $this->start_date?->toDateString(),
             'end_date' => $this->end_date?->toDateString(),
+            'hired_at' => $this->hired_at?->toIso8601String(),
             'skills' => $this->skills ?? [],
             'social_links' => $this->social_links ?? new \stdClass(),
             'user' => $this->whenLoaded('user', fn () => [
@@ -54,5 +66,19 @@ final class ProfileResource extends JsonResource
         }
 
         return $base;
+    }
+
+    private function roleLabel(string $role): string
+    {
+        return match ($role) {
+            'tenant_admin' => 'Admin',
+            'hr' => 'RRHH',
+            'team_lead' => 'Líder de equipo',
+            'mentor' => 'Mentor',
+            'intern' => 'Practicante',
+            'supervisor' => 'Supervisor',
+            'viewer' => 'Observador',
+            default => ucfirst($role),
+        };
     }
 }

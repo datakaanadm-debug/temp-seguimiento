@@ -65,6 +65,7 @@ export interface User {
   timezone: string
   email_verified_at: ISODateTime | null
   two_factor_enabled: boolean
+  tour_completed_at: ISODateTime | null
   role: MembershipRole | null
   role_label: string | null
   membership_status: string | null
@@ -149,10 +150,13 @@ export interface Profile {
   user_id: UUID
   kind: ProfileKind
   kind_label: string
+  role: MembershipRole | null
+  role_label: string | null
   bio: string | null
   position_title: string | null
   start_date: ISODate | null
   end_date: ISODate | null
+  hired_at: ISODateTime | null
   skills: string[]
   social_links: Record<string, string>
   user?: User
@@ -233,6 +237,7 @@ export interface Task {
   id: UUID
   project_id: UUID
   list_id: UUID | null
+  key_result_id: UUID | null
   parent_task_id: UUID | null
   title: string
   description: string | null
@@ -255,6 +260,13 @@ export interface Task {
   comment_count?: number
   attachment_count?: number
   tags?: Tag[]
+  collaborators?: Array<{
+    id: UUID
+    name: string | null
+    email: string
+    avatar_url: string | null
+    assigned_at: ISODateTime | null
+  }>
   created_at: ISODateTime
   updated_at: ISODateTime
 }

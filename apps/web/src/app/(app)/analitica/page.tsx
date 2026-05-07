@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiClient } from '@/lib/api-client'
+import { useRequireRole } from '@/hooks/use-require-role'
 import { cn } from '@/lib/utils'
 import type { PaginatedResponse, Profile, Task } from '@/types/api'
 
@@ -16,6 +17,7 @@ import type { PaginatedResponse, Profile, Task } from '@/types/api'
 // así que calculamos en cliente desde las listas de tasks + profiles.
 
 export default function AnaliticaPage() {
+  const allowed = useRequireRole(['tenant_admin', 'hr', 'team_lead', 'supervisor'])
   const { data: tasksData, isLoading: tasksLoading } = useQuery({
     queryKey: ['analytics-tasks'],
     queryFn: () => apiClient.get<PaginatedResponse<Task>>('/api/v1/tasks', {
@@ -28,6 +30,8 @@ export default function AnaliticaPage() {
       searchParams: { kind: 'intern', per_page: 100 },
     }),
   })
+
+  if (!allowed) return null
 
   const tasks = tasksData?.data ?? []
   const interns = internsData?.data ?? []

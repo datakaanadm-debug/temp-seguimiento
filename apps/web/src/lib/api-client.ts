@@ -120,6 +120,23 @@ async function request<T = unknown>(
     throw new ApiError(res.status, message, payload, errors)
   }
 
+  // Si el backend (middleware AppendRecentAwards) inyectó badges otorgadas
+  // durante este request, dispara un evento global para que el listener
+  // de UI muestre toast + invalide queries de gamification.
+  if (
+    typeof window !== 'undefined'
+    && payload
+    && typeof payload === 'object'
+    && Array.isArray((payload as any)._awarded_badges)
+    && (payload as any)._awarded_badges.length > 0
+  ) {
+    window.dispatchEvent(
+      new CustomEvent('gamification:awards', {
+        detail: (payload as any)._awarded_badges,
+      }),
+    )
+  }
+
   return payload as T
 }
 

@@ -47,6 +47,7 @@ class Task extends BaseModel
         'tenant_id',
         'project_id',
         'list_id',
+        'key_result_id',
         'parent_task_id',
         'title',
         'description',

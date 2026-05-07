@@ -20,9 +20,18 @@ abstract class BaseNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public string $queue = 'notifications';
     public int $tries = 5;
     public int $backoff = 10;
+
+    /** Override de Queueable trait: queue por canal. */
+    public function viaQueues(): array
+    {
+        return [
+            'mail' => 'notifications',
+            'database' => 'notifications',
+            'broadcast' => 'notifications',
+        ];
+    }
 
     abstract public function category(): NotificationCategory;
 

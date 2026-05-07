@@ -1,14 +1,22 @@
 'use client'
 
 import { Fragment, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Icon, type IconName } from '@/components/ui/icon'
 import {
   SectionTitle, PaperCard, PaperBadge,
 } from '@/components/ui/primitives'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Can } from '@/components/shared/can'
+import { useRequireRole } from '@/hooks/use-require-role'
 import { cn } from '@/lib/utils'
-
-// Mock — cuando exista el módulo Automation en backend se conecta a /api/v1/rules
-// El shape trigger/condition/action ya está alineado con el doc sección 14.
+import {
+  listAutomationRules,
+  toggleAutomationRule,
+  type AutomationRule,
+} from '@/features/automation/api/automation'
+import { NewRuleDialog } from '@/features/automation/components/new-rule-dialog'
 
 type RuleStep = {
   kind: 'trigger' | 'condition' | 'action'
@@ -37,66 +45,6 @@ const TONE_MAP: Record<RuleStep['tone'], { color: string; border: string; bg: st
   },
 }
 
-type Rule = {
-  id: string
-  title: string
-  enabled: boolean
-  runs: number
-  description: string
-  lastRun?: string
-  steps?: RuleStep[]
-}
-
-const RULES: Rule[] = [
-  {
-    id: 'r1',
-    title: 'Alertar bloqueo sin respuesta en 24h',
-    enabled: true,
-    runs: 42,
-    description: 'Si una tarea está en "Bloqueada" > 24h → notificar al líder y mentor',
-    lastRun: 'hace 2h',
-  },
-  {
-    id: 'r2',
-    title: 'Resumir bitácora semanal con IA',
-    enabled: true,
-    runs: 18,
-    description: 'Cada viernes 16:00 → generar resumen de la semana y enviar a RH',
-    lastRun: 'viernes pasado',
-  },
-  {
-    id: 'r3',
-    title: 'Escalar tarea vencida +3 días',
-    enabled: true,
-    runs: 9,
-    description: 'Si due_date + 3d y estado ≠ Done → reasignar a líder + marcar roja',
-    lastRun: 'hace 5d',
-  },
-  {
-    id: 'r4',
-    title: 'Mensaje de bienvenida a practicantes',
-    enabled: false,
-    runs: 0,
-    description: 'Cuando un practicante se añade → enviar DM por Slack con checklist',
-  },
-  {
-    id: 'r5',
-    title: 'Feedback post-sesión 1:1',
-    enabled: true,
-    runs: 24,
-    description: '10 min después de cada 1:1 → pedir rating + nota al practicante',
-    lastRun: 'ayer',
-  },
-  {
-    id: 'r6',
-    title: 'Detectar baja productividad',
-    enabled: true,
-    runs: 7,
-    description: 'Si bitácora < 3 días/semana × 2 semanas → alerta a RH',
-    lastRun: 'hace 3d',
-  },
-]
-
 const FEATURED_RECIPE: RuleStep[] = [
   {
     kind: 'trigger',
@@ -124,34 +72,67 @@ const FEATURED_RECIPE: RuleStep[] = [
   },
 ]
 
-export default function AutomatizacionPage() {
-  const [rules, setRules] = useState(RULES)
-  const active = rules.filter((r) => r.enabled).length
-  const totalRuns = rules.reduce((a, r) => a + r.runs, 0)
+function formatLastRun(iso: string | null): string | null {
+  if (!iso) return null
+  const then = new Date(iso).getTime()
+  const diffMs = Date.now() - then
+  const hours = diffMs / 3_600_000
+  if (hours < 1) return 'hace minutos'
+  if (hours < 24) return `hace ${Math.round(hours)}h`
+  const days = Math.round(hours / 24)
+  if (days === 1) return 'ayer'
+  if (days < 7) return `hace ${days}d`
+  const weeks = Math.round(days / 7)
+  if (weeks === 1) return 'hace 1 semana'
+  return `hace ${weeks} semanas`
+}
 
-  const toggleRule = (id: string) => {
-    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)))
-  }
+export default function AutomatizacionPage() {
+  const allowed = useRequireRole(['tenant_admin', 'hr'])
+  const qc = useQueryClient()
+  const [newOpen, setNewOpen] = useState(false)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['automation-rules'],
+    queryFn: listAutomationRules,
+  })
+  if (!allowed) return null
+  const rules = data?.data ?? []
+  const meta = data?.meta ?? { total: 0, active: 0, runs_this_month: 0 }
+
+  const toggle = useMutation({
+    mutationFn: toggleAutomationRule,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['automation-rules'] })
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'No se pudo actualizar la regla'),
+  })
 
   return (
     <div className="mx-auto max-w-[1100px] px-7 py-5 pb-10">
       <SectionTitle
         kicker="Automatización"
         title="Reglas y flujos inteligentes"
-        sub={`${active} reglas activas · ${totalRuns} ejecuciones este mes · ahorran ~${Math.round(totalRuns * 0.15)}h/sem`}
+        sub={
+          isLoading
+            ? 'Cargando reglas…'
+            : `${meta.active} reglas activas · ${meta.runs_this_month} ejecuciones registradas · ahorran ~${Math.round(meta.runs_this_month * 0.15)}h/sem`
+        }
         right={
-          <>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
-              <Icon.Auto size={12} />
-              Plantillas
-            </button>
-            <button className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2">
+          <Can capability="create_automations">
+            <button
+              type="button"
+              onClick={() => setNewOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+            >
               <Icon.Plus size={12} />
               Nueva regla
             </button>
-          </>
+          </Can>
         }
       />
+
+      <NewRuleDialog open={newOpen} onOpenChange={setNewOpen} />
 
       {/* Featured recipe */}
       <PaperCard className="mb-5">
@@ -203,18 +184,47 @@ export default function AutomatizacionPage() {
       </PaperCard>
 
       {/* Rules list */}
-      <div className="overflow-hidden rounded-lg border border-paper-line bg-paper-raised">
-        <div
-          className="grid border-b border-paper-line px-4 py-2.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.3px] text-ink-3"
-          style={{ gridTemplateColumns: '48px 1fr 120px 90px 70px' }}
-        >
-          <span />
-          <span>Regla</span>
-          <span>Ejecuciones</span>
-          <span>Estado</span>
-          <span />
+      {isLoading ? (
+        <Skeleton className="h-80 w-full" />
+      ) : rules.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-paper-line bg-paper-surface p-12 text-center text-[13px] text-ink-3">
+          Sin reglas configuradas. Crea la primera desde "Nueva regla".
         </div>
-        {rules.map((a, i) => (
+      ) : (
+        <RulesTable
+          rules={rules}
+          onToggle={(id) => toggle.mutate(id)}
+          togglePending={toggle.isPending}
+        />
+      )}
+    </div>
+  )
+}
+
+function RulesTable({
+  rules,
+  onToggle,
+  togglePending,
+}: {
+  rules: AutomationRule[]
+  onToggle: (id: string) => void
+  togglePending: boolean
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-paper-line bg-paper-raised">
+      <div
+        className="grid border-b border-paper-line px-4 py-2.5 font-mono text-[10.5px] font-semibold uppercase tracking-[0.3px] text-ink-3"
+        style={{ gridTemplateColumns: '48px 1fr 120px 90px 70px' }}
+      >
+        <span />
+        <span>Regla</span>
+        <span>Ejecuciones</span>
+        <span>Estado</span>
+        <span />
+      </div>
+      {rules.map((a, i) => {
+        const lastRun = formatLastRun(a.last_run_at)
+        return (
           <div
             key={a.id}
             className={cn(
@@ -236,41 +246,56 @@ export default function AutomatizacionPage() {
             <div className="min-w-0">
               <div className="truncate text-[13px] font-medium text-ink">{a.title}</div>
               <div className="mt-0.5 truncate font-mono text-[11px] text-ink-3">
-                {a.description}
+                {a.description ?? a.trigger_kind}
               </div>
             </div>
             <div>
-              <div className="font-mono text-[12px] text-ink-2">{a.runs}/mes</div>
-              {a.lastRun && (
-                <div className="mt-0.5 text-[10.5px] text-ink-3">última: {a.lastRun}</div>
+              <div className="font-mono text-[12px] text-ink-2">{a.runs_count}/mes</div>
+              {lastRun && (
+                <div className="mt-0.5 text-[10.5px] text-ink-3">última: {lastRun}</div>
               )}
             </div>
             <div>
-              <ToggleSwitch checked={a.enabled} onChange={() => toggleRule(a.id)} />
+              <ToggleSwitch
+                checked={a.enabled}
+                disabled={togglePending}
+                onChange={() => onToggle(a.id)}
+              />
             </div>
             <button
               type="button"
-              className="justify-self-end rounded-md p-1 text-ink-3 hover:bg-paper-bg-2 hover:text-ink"
+              className="justify-self-end rounded-md p-1 text-ink-3 hover:bg-paper-bg-2 hover:text-ink disabled:opacity-40"
               aria-label="Configurar regla"
+              title="Configurar (próximamente)"
+              disabled
             >
               <Icon.Settings size={13} />
             </button>
           </div>
-        ))}
-      </div>
+        )
+      })}
     </div>
   )
 }
 
-function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+function ToggleSwitch({
+  checked,
+  disabled,
+  onChange,
+}: {
+  checked: boolean
+  disabled?: boolean
+  onChange: () => void
+}) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       onClick={onChange}
+      disabled={disabled}
       className={cn(
-        'relative h-[22px] w-10 rounded-full transition-colors',
+        'relative h-[22px] w-10 rounded-full transition-colors disabled:opacity-60',
         checked ? 'bg-primary' : 'bg-paper-line',
       )}
     >

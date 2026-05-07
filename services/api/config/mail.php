@@ -113,4 +113,20 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Global Reply-To Address
+    |--------------------------------------------------------------------------
+    |
+    | Se aplica vía listener `AddGlobalReplyTo` a todos los mensajes salientes
+    | (notifications + mailables) para que las respuestas lleguen a un buzón
+    | supervisado aunque `from` sea un no-reply.
+    |
+    */
+
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS'),
+        'name' => env('MAIL_REPLY_TO_NAME'),
+    ],
+
 ];

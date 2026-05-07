@@ -6,6 +6,7 @@ namespace App\Modules\Tasks\Http\Controllers;
 
 use App\Modules\Tasks\Application\Commands\CreateProject;
 use App\Modules\Tasks\Application\Commands\CreateProjectHandler;
+use App\Modules\Tasks\Domain\Events\ProjectCompleted;
 use App\Modules\Tasks\Domain\Project;
 use App\Modules\Tasks\Http\Requests\CreateProjectRequest;
 use App\Modules\Tasks\Http\Resources\ProjectResource;
@@ -93,9 +94,20 @@ final class ProjectController extends Controller
             $validated['archived_at'] = now();
         }
 
+        $previousStatus = $project->status;
+
         $project->fill($validated);
         $project->updated_by = $request->user()->id;
         $project->save();
+
+        // Si el proyecto pasó a `completed` (y no lo estaba antes), disparar evento
+        // que la gamificación recoge para otorgar `first-project`.
+        if (
+            ($validated['status'] ?? null) === 'completed'
+            && $previousStatus !== 'completed'
+        ) {
+            event(new ProjectCompleted($project->fresh(), $request->user()));
+        }
 
         return response()->json([
             'data' => ProjectResource::make($project)->resolve(),

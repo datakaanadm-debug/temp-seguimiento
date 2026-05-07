@@ -56,12 +56,12 @@ final class TeamController extends Controller
     public function store(CreateTeamRequest $request): JsonResponse
     {
         $team = $this->createHandler->handle(new CreateTeam(
-            areaId: $request->string('area_id'),
-            name: $request->string('name'),
+            areaId: (string) $request->string('area_id'),
+            name: (string) $request->string('name'),
             slug: strtolower((string) $request->string('slug')),
             actor: $request->user(),
-            leadUserId: $request->string('lead_user_id') ?: null,
-            color: $request->string('color') ?: null,
+            leadUserId: $request->filled('lead_user_id') ? (string) $request->string('lead_user_id') : null,
+            color: $request->filled('color') ? (string) $request->string('color') : null,
             metadata: (array) $request->input('metadata', []),
         ));
 
@@ -122,8 +122,8 @@ final class TeamController extends Controller
 
         $membership = $this->addMemberHandler->handle(new AddTeamMember(
             teamId: $team->id,
-            userId: $request->string('user_id'),
-            role: $request->string('role'),
+            userId: (string) $request->string('user_id'),
+            role: (string) $request->string('role'),
             actor: $request->user(),
         ));
 

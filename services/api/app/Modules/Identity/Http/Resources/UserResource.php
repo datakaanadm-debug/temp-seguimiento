@@ -25,6 +25,7 @@ final class UserResource extends JsonResource
             'timezone' => $this->timezone,
             'email_verified_at' => $this->email_verified_at?->toIso8601String(),
             'two_factor_enabled' => $this->two_factor_confirmed_at !== null,
+            'tour_completed_at' => $this->tour_completed_at?->toIso8601String(),
             'role' => $membership?->role->value,
             'role_label' => $membership?->role->label(),
             'membership_status' => $membership?->status->value,

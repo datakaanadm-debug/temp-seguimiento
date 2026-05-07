@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperCard } from '@/components/ui/primitives'
 import { useAuth } from '@/providers/auth-provider'
-import { updateTenant } from '@/features/auth/api'
+import { useCan } from '@/hooks/use-can'
+import { removeTenantLogo, updateTenant, uploadTenantLogo } from '@/features/auth/api'
 
 const ACCENTS = [
   { id: 'cobalt', label: 'Cobalto', c: '#3a5f8a' },
@@ -16,6 +17,7 @@ const ACCENTS = [
 
 export default function EmpresaPage() {
   const { tenant, setTenant } = useAuth()
+  const canEdit = useCan('edit_company')
   const settings = (tenant?.settings ?? {}) as Record<string, any>
   const theme = (tenant?.theme ?? {}) as Record<string, any>
 
@@ -77,13 +79,19 @@ export default function EmpresaPage() {
         title="Empresa"
         sub="Información general, branding y residencia de datos"
         right={
-          <button
-            type="submit"
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2 disabled:opacity-50"
-          >
-            {saving ? 'Guardando…' : 'Guardar cambios'}
-          </button>
+          canEdit ? (
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2 disabled:opacity-50"
+            >
+              {saving ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-surface px-2.5 py-[6px] text-[11px] text-ink-3">
+              <Icon.AlertTriangle size={11} /> sólo lectura
+            </span>
+          )
         }
       />
 
@@ -191,20 +199,7 @@ export default function EmpresaPage() {
             ))}
           </div>
         </Field>
-        <div className="mt-4 rounded-md border border-dashed border-paper-line bg-paper-surface p-8 text-center">
-          <div className="font-mono text-[10.5px] uppercase tracking-[0.5px] text-ink-3">
-            Logo
-          </div>
-          <div className="mt-1.5 text-[12px] text-ink-3">
-            Arrastra un archivo aquí o{' '}
-            <button type="button" className="font-medium text-primary hover:underline">
-              busca en tu equipo
-            </button>
-          </div>
-          <div className="mt-1 text-[10.5px] text-ink-muted">
-            PNG o SVG · min 200×200 · máx 2 MB (subida pendiente de integración)
-          </div>
-        </div>
+        <LogoUploader />
       </PaperCard>
 
       <style jsx>{`
@@ -232,5 +227,106 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="font-mono text-[11px] uppercase tracking-[0.4px] text-ink-3">{label}</span>
       {children}
     </label>
+  )
+}
+
+function LogoUploader() {
+  const { tenant, setTenant } = useAuth()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const logoUrl = (tenant?.theme as any)?.logo_url ?? null
+
+  const upload = async (file: File) => {
+    setUploading(true)
+    try {
+      const res = await uploadTenantLogo(file)
+      setTenant(res.tenant)
+      toast.success('Logo actualizado')
+    } catch (err: any) {
+      const msg = err?.errors?.file?.[0] ?? err?.message ?? 'No se pudo subir el logo'
+      toast.error(msg)
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  const remove = async () => {
+    if (!confirm('¿Eliminar el logo actual?')) return
+    setUploading(true)
+    try {
+      const res = await removeTenantLogo()
+      setTenant(res.tenant)
+      toast.success('Logo removido')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'No se pudo eliminar')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="mt-4">
+      <div className="font-mono text-[10.5px] uppercase tracking-[0.5px] text-ink-3">
+        Logo
+      </div>
+      <div className="mt-2 flex items-center gap-4 rounded-md border border-paper-line bg-paper-surface p-4">
+        <div
+          className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-md border border-paper-line-soft bg-paper-bg-2"
+          aria-label="Vista previa del logo"
+        >
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt={`Logo de ${tenant?.name ?? 'empresa'}`}
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <span className="font-serif text-[24px] text-ink-muted">
+              {tenant?.name?.charAt(0)?.toUpperCase() ?? '?'}
+            </span>
+          )}
+        </div>
+        <div className="flex-1 text-[12.5px] text-ink-2">
+          {logoUrl ? 'Logo actual cargado.' : 'Aún no has subido un logo.'}
+          <div className="mt-0.5 text-[10.5px] text-ink-muted">
+            PNG, JPG, SVG o WebP · máx 2 MB
+          </div>
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          className="sr-only"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+          disabled={uploading}
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) upload(f)
+          }}
+        />
+        <div className="flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-2.5 py-[6px] text-[12px] font-medium text-paper-surface hover:bg-ink-2 disabled:opacity-50"
+          >
+            <Icon.Plus size={11} />
+            {uploading ? 'Subiendo…' : logoUrl ? 'Cambiar' : 'Subir logo'}
+          </button>
+          {logoUrl && (
+            <button
+              type="button"
+              onClick={remove}
+              disabled={uploading}
+              className="text-[11px] text-ink-3 hover:text-destructive disabled:opacity-50"
+            >
+              Eliminar
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }

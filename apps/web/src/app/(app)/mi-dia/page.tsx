@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/primitives'
 import { getSessionServer } from '@/lib/auth/server'
 import type { PaginatedResponse, Task, DailyReport } from '@/types/api'
+import type { CalendarTodayResponse } from '@/features/calendar/api/calendar'
 
 export const metadata = { title: 'Mi día' }
 
@@ -14,7 +15,7 @@ async function fetchDay() {
   const cookieStore = await cookies()
   const client = apiClientServer(cookieStore)
 
-  const [tasksRes, todayReportRes] = await Promise.allSettled([
+  const [tasksRes, todayReportRes, calendarRes] = await Promise.allSettled([
     client.get<PaginatedResponse<Task>>('/api/v1/tasks', {
       searchParams: { mine: true, per_page: 50 },
     }),
@@ -26,11 +27,13 @@ async function fetchDay() {
         }
         throw err
       }),
+    client.get<CalendarTodayResponse>('/api/v1/calendar/today'),
   ])
 
   return {
     tasks: tasksRes.status === 'fulfilled' ? tasksRes.value.data : [],
     todayReport: todayReportRes.status === 'fulfilled' ? todayReportRes.value.data : null,
+    agenda: calendarRes.status === 'fulfilled' ? calendarRes.value.data : [],
   }
 }
 
@@ -38,7 +41,7 @@ export default async function MiDiaPage() {
   const session = await getSessionServer()
   const firstName = session?.user.name?.split(' ')[0] ?? ''
   const greeting = greetingFor(new Date())
-  const { tasks, todayReport } = await fetchDay()
+  const { tasks, todayReport, agenda } = await fetchDay()
 
   const myActive = tasks.filter((t) => t.state !== 'DONE' && t.state !== 'CANCELLED')
   const focusToday = myActive
@@ -177,25 +180,56 @@ export default async function MiDiaPage() {
 
         {/* RIGHT: agenda + accesos + logros */}
         <div className="flex min-w-0 flex-col gap-4">
-          <PaperCard title="Agenda · hoy" right={<Icon.Cal size={13} className="text-ink-3" />}>
-            {[
-              { time: '10:00', t: '1:1 con tu mentor', tag: 'mentoría', tone: 'tag1' as const },
-              { time: '14:00', t: 'Sesión de equipo', tag: 'equipo', tone: 'tag2' as const },
-              { time: '16:00', t: 'Escribir bitácora', tag: 'reporte', tone: 'tag3' as const },
-            ].map((e, i) => (
-              <div
-                key={i}
-                className={`flex items-start gap-2.5 py-2 ${i > 0 ? 'border-t border-paper-line-soft' : ''}`}
-              >
-                <span className="w-10 shrink-0 font-mono text-[11px] text-ink-3">{e.time}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] text-ink">{e.t}</div>
-                  <PaperBadge tone={e.tone} className="mt-1 !text-[10px]">
-                    {e.tag}
-                  </PaperBadge>
-                </div>
+          <PaperCard
+            title="Agenda · hoy"
+            right={
+              <span className="inline-flex items-center gap-1 font-mono text-[11px] text-ink-3">
+                <Icon.Cal size={13} />
+                {agenda.length}
+              </span>
+            }
+          >
+            {agenda.length === 0 ? (
+              <div className="py-4 text-center text-[12.5px] text-ink-3">
+                Sin eventos programados para hoy.
               </div>
-            ))}
+            ) : (
+              agenda.map((e, i) => {
+                const time = new Date(e.starts_at).toLocaleTimeString('es-MX', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+                const tone =
+                  e.source === 'mentor_session'
+                    ? ('tag1' as const)
+                    : e.source === 'evaluation'
+                      ? ('tag3' as const)
+                      : ('tag2' as const)
+                const body = (
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13px] text-ink">{e.title}</div>
+                    <PaperBadge tone={tone} className="mt-1 !text-[10px]">
+                      {e.tags[0] ?? e.kind}
+                    </PaperBadge>
+                  </div>
+                )
+                return (
+                  <div
+                    key={`${e.source}-${e.id}`}
+                    className={`flex items-start gap-2.5 py-2 ${i > 0 ? 'border-t border-paper-line-soft' : ''}`}
+                  >
+                    <span className="w-10 shrink-0 font-mono text-[11px] text-ink-3">{time}</span>
+                    {e.link ? (
+                      <Link href={e.link} className="min-w-0 flex-1 transition hover:opacity-80">
+                        {body}
+                      </Link>
+                    ) : (
+                      body
+                    )}
+                  </div>
+                )
+              })
+            )}
           </PaperCard>
 
           <PaperCard title="Accesos rápidos">

@@ -4,10 +4,16 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { apiClient } from '@/lib/api-client'
+import { useAuth } from '@/providers/auth-provider'
+import { listMentorAssignments } from '@/features/people/api/people'
+import { listObjectives } from '@/features/okrs/api/okrs'
 import { useCreateTask } from '../hooks/use-task-mutations'
+import type { PaginatedResponse, Profile } from '@/types/api'
 
 const schema = z.object({
   project_id: z.string().uuid(),
@@ -15,6 +21,7 @@ const schema = z.object({
   description: z.string().max(50_000).optional().nullable(),
   priority: z.enum(['urgent', 'high', 'normal', 'low']).default('normal'),
   assignee_id: z.string().uuid().nullable().optional(),
+  key_result_id: z.string().uuid().nullable().optional(),
   due_at: z.string().optional().nullable(),
   estimated_minutes: z.number().int().min(0).max(100_000).optional().nullable(),
 })
@@ -23,7 +30,67 @@ type FormValues = z.infer<typeof schema>
 
 export function TaskForm({ projectId, onCreated }: { projectId: string; onCreated?: (id: string) => void }) {
   const router = useRouter()
+  const { user } = useAuth()
   const { mutateAsync, isPending } = useCreateTask()
+
+  const isIntern = user?.role === 'intern'
+
+  // Intern: solo puede asignarse a sí mismo o a su(s) mentor(es) asignado(s).
+  // Staff: ve el directorio completo.
+  const { data: peopleData } = useQuery({
+    queryKey: ['profiles-task-assignee'],
+    queryFn: () =>
+      apiClient.get<PaginatedResponse<Profile>>('/api/v1/profiles', {
+        searchParams: { per_page: 100 },
+      }),
+    enabled: !isIntern,
+  })
+  const { data: mentorsOfMine } = useQuery({
+    queryKey: ['task-assignee-mentors-mine', user?.id],
+    queryFn: () => listMentorAssignments({ intern_user_id: user!.id, status: 'active' }),
+    enabled: isIntern && !!user?.id,
+  })
+
+  // OKRs vinculables: para intern, sus propios objectives. Para staff,
+  // todos del tenant. Filtramos los `completed` para no llenar el dropdown
+  // de KRs cerrados.
+  const { data: okrsData } = useQuery({
+    queryKey: ['task-form-objectives', isIntern ? 'mine' : 'all'],
+    queryFn: () =>
+      listObjectives(isIntern ? { mine: true } : {}),
+  })
+  const krOptions = (okrsData?.data ?? [])
+    .filter((o) => o.status !== 'completed')
+    .flatMap((o) =>
+      (o.key_results ?? [])
+        .filter((kr) => kr.progress_percent < 100)
+        .map((kr) => ({
+          id: kr.id,
+          label: `${o.label} → ${kr.text}`,
+          quarter: o.quarter,
+        })),
+    )
+
+  const people: Array<{ user_id: string; user: { name: string | null; email: string } | null | undefined }> = isIntern
+    ? [
+        // El propio intern primero
+        ...(user
+          ? [{
+              user_id: user.id,
+              user: { name: user.name, email: user.email },
+            }]
+          : []),
+        // + sus mentores activos
+        ...(mentorsOfMine?.data ?? []).flatMap((a) =>
+          a.mentor
+            ? [{
+                user_id: a.mentor.id,
+                user: { name: a.mentor.name, email: a.mentor.email },
+              }]
+            : [],
+        ),
+      ]
+    : (peopleData?.data ?? [])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -33,6 +100,7 @@ export function TaskForm({ projectId, onCreated }: { projectId: string; onCreate
       description: '',
       priority: 'normal',
       assignee_id: null,
+      key_result_id: null,
       due_at: null,
       estimated_minutes: null,
     },
@@ -43,6 +111,8 @@ export function TaskForm({ projectId, onCreated }: { projectId: string; onCreate
       ...data,
       description: data.description || null,
       due_at: data.due_at || null,
+      assignee_id: data.assignee_id || null,
+      key_result_id: data.key_result_id || null,
     })
     if (onCreated) onCreated(res.data.id)
     else router.push(`/tareas/${res.data.id}`)
@@ -101,16 +171,58 @@ export function TaskForm({ projectId, onCreated }: { projectId: string; onCreate
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="estimated_minutes">Estimación (min)</Label>
-        <Input
-          id="estimated_minutes"
-          type="number"
-          min={0}
-          placeholder="120"
-          {...form.register('estimated_minutes', { valueAsNumber: true })}
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="assignee_id">Asignar a</Label>
+          <select
+            id="assignee_id"
+            {...form.register('assignee_id')}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">— sin asignar —</option>
+            {people.map((p) => (
+              <option key={p.user_id} value={p.user_id}>
+                {p.user?.name ?? p.user?.email}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="estimated_minutes">Estimación (min)</Label>
+          <Input
+            id="estimated_minutes"
+            type="number"
+            min={0}
+            placeholder="120"
+            {...form.register('estimated_minutes', { valueAsNumber: true })}
+          />
+        </div>
       </div>
+
+      {krOptions.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="key_result_id">
+            Vincular a OKR
+            <span className="ml-2 font-mono text-[10px] text-ink-3">opcional</span>
+          </Label>
+          <select
+            id="key_result_id"
+            {...form.register('key_result_id')}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">— sin vincular —</option>
+            {krOptions.map((kr) => (
+              <option key={kr.id} value={kr.id}>
+                [{kr.quarter}] {kr.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-ink-3">
+            Si vinculas la tarea a un Key Result, su progreso se calcula automáticamente como % de tareas completadas.
+          </p>
+        </div>
+      )}
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={() => router.back()}>

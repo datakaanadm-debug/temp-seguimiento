@@ -60,6 +60,28 @@ return [
             'report' => false,
         ],
 
+        // R2: en prod es S3-compatible con Cloudflare. En dev sin credenciales
+        // cae a disco local para que el flujo de attachments funcione sin
+        // necesidad de cuenta R2.
+        'r2' => env('AWS_ACCESS_KEY_ID')
+            ? [
+                'driver' => 's3',
+                'key' => env('AWS_ACCESS_KEY_ID'),
+                'secret' => env('AWS_SECRET_ACCESS_KEY'),
+                'region' => env('AWS_DEFAULT_REGION', 'auto'),
+                'bucket' => env('AWS_BUCKET'),
+                'endpoint' => env('AWS_ENDPOINT'),
+                'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', true),
+                'throw' => false,
+                'report' => false,
+            ]
+            : [
+                'driver' => 'local',
+                'root' => storage_path('app/private'),
+                'throw' => false,
+                'report' => false,
+            ],
+
     ],
 
     /*
