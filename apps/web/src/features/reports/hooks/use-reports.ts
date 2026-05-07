@@ -35,6 +35,16 @@ export function useRequestReport() {
       qc.invalidateQueries({ queryKey: ['reports', 'runs'] })
       toast.success('Reporte en cola. Te avisaremos cuando esté listo.')
     },
-    onError: () => toast.error('No se pudo solicitar el reporte'),
+    onError: (e: any) => {
+      // Mensajes amigables por código frecuentes (429 throttle, 422 validación)
+      if (e?.status === 429) {
+        toast.error('Demasiadas solicitudes seguidas. Espera un momento e intenta de nuevo.')
+      } else if (e?.status === 422) {
+        const first = e?.errors ? Object.values(e.errors)[0] : null
+        toast.error(Array.isArray(first) ? first[0] : (e?.message ?? 'Datos inválidos'))
+      } else {
+        toast.error(e?.message ?? 'No se pudo solicitar el reporte')
+      }
+    },
   })
 }

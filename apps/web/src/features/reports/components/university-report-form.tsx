@@ -41,15 +41,20 @@ export function UniversityReportForm() {
       return
     }
     const profile = internsData?.data.find((p) => p.user_id === data.intern_user_id)
-    await request.mutateAsync({
-      template_id: template.id,
-      subject_type: 'user',
-      subject_id: data.intern_user_id,
-      period_start: data.period_start,
-      period_end: data.period_end,
-      parameters: { intern_profile_id: profile?.id },
-    })
-    router.push('/reportes')
+    try {
+      await request.mutateAsync({
+        template_id: template.id,
+        subject_type: 'user',
+        subject_id: data.intern_user_id,
+        period_start: data.period_start,
+        period_end: data.period_end,
+        parameters: { intern_profile_id: profile?.id },
+      })
+      router.push('/reportes')
+    } catch {
+      // El error ya fue mostrado vía toast por useRequestReport.onError;
+      // capturamos para no propagar al Error Boundary.
+    }
   }
 
   if (loadingTemplates || loadingInterns) {
