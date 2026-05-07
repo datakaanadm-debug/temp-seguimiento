@@ -55,7 +55,7 @@ final class OnboardingTemplateService
             [
                 'group' => 'Orientación e integración',
                 'items' => [
-                    ['title' => 'Introducción a la plataforma Interna (tour)', 'role' => 'RRHH', 'days' => 1],
+                    ['title' => 'Introducción a la plataforma Senda (tour)', 'role' => 'RRHH', 'days' => 1],
                     ['title' => 'Reunión 1:1 con mentor/a asignado/a', 'role' => 'Mentor', 'days' => 3],
                     ['title' => 'Presentación con el equipo', 'role' => 'Líder', 'days' => 5],
                     ['title' => 'Definición de OKRs del primer mes', 'role' => 'Líder', 'days' => 7],

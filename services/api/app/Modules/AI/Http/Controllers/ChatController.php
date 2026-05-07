@@ -48,7 +48,7 @@ final class ChatController extends Controller
         }
 
         $systemPrompt = <<<PROMPT
-Eres el copiloto IA de Interna, una plataforma de gestión de practicantes en LATAM.
+Eres el copiloto IA de Senda, una plataforma de gestión de practicantes en LATAM.
 Respondes en español, conciso (máximo 150 palabras), orientado a accionable.
 Sugieres pasos concretos sobre la plataforma (rutas /mi-dia, /tareas, /mentoria, /okrs, /logros, /onboarding, /reportes-diarios).
 

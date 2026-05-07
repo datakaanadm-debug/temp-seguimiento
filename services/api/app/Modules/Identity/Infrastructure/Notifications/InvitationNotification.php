@@ -51,7 +51,7 @@ final class InvitationNotification extends Notification implements ShouldQueue
         // Vista HTML con branding del tenant (logo, brand_primary, brand_dark).
         // Fallback a MailMessage default si la vista falla (defensivo).
         return (new MailMessage())
-            ->subject("Te invitaron a {$this->tenant->name} en Interna")
+            ->subject("Te invitaron a {$this->tenant->name} en Senda")
             ->view('emails.invitation', [
                 'tenant' => $this->tenant,
                 'invitation' => $this->invitation,

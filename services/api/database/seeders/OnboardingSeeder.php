@@ -34,7 +34,7 @@ class OnboardingSeeder extends Seeder
             [
                 'group' => 'Orientación e integración',
                 'items' => [
-                    ['Introducción a la plataforma Interna (tour)', 'RRHH', 1, true],
+                    ['Introducción a la plataforma Senda (tour)', 'RRHH', 1, true],
                     ['Reunión 1:1 con mentora asignada', 'Mentor', 3, true],
                     ['Presentación con el equipo', 'Líder', 5, true],
                     ['Definición de OKRs del primer mes', 'Líder', 7, false],

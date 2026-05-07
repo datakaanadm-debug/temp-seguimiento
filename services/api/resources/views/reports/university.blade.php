@@ -212,7 +212,7 @@
     @endif
 
     <div class="footer">
-        {{ $tenant['name'] }} · Reporte generado por Interna · {{ \Carbon\Carbon::parse($generated_at)->locale('es')->isoFormat('LL') }}
+        {{ $tenant['name'] }} · Reporte generado por Senda · {{ \Carbon\Carbon::parse($generated_at)->locale('es')->isoFormat('LL') }}
     </div>
 </div>
 </body>

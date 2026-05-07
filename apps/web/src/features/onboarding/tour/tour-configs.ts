@@ -21,7 +21,7 @@ export interface TourStep {
 const COMMON_INTRO: TourStep = {
   element: null,
   popover: {
-    title: '👋 Bienvenido a Interna',
+    title: '👋 Bienvenido a Senda',
     description:
       'Te voy a mostrar lo esencial en 1 minuto. Puedes saltar el tour cuando quieras.',
   },

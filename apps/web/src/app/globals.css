@@ -132,6 +132,11 @@
     --accent-ink: 91 36% 24%;
     --accent-soft: 73 30% 86%;
   }
+  [data-accent='dkn'] {
+    --accent-h: 177 100% 32%;         /* #00a39c teal */
+    --accent-ink: 177 100% 22%;
+    --accent-soft: 177 60% 88%;
+  }
 }
 
 @layer base {

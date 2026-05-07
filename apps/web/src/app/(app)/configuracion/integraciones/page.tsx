@@ -25,7 +25,7 @@ const INTEGRATIONS: Integration[] = [
   { id: 'azure_sso', name: 'Microsoft Entra ID (SSO)', category: 'identity', description: 'SAML/OIDC con Microsoft para empresas enterprise.', status: 'available', logoText: 'M', color: '#0078D4' },
   { id: 'drive', name: 'Google Drive', category: 'files', description: 'Adjuntos nativos en tareas y comentarios.', status: 'available', logoText: 'D', color: '#0F9D58' },
   { id: 'notion', name: 'Notion', category: 'dev', description: 'Sincroniza docs y páginas como referencias.', status: 'coming_soon', logoText: 'N', color: '#000000' },
-  { id: 'jira', name: 'Jira', category: 'dev', description: 'Bidireccional: tareas de Jira ↔ Interna.', status: 'coming_soon', logoText: 'J', color: '#0052CC' },
+  { id: 'jira', name: 'Jira', category: 'dev', description: 'Bidireccional: tareas de Jira ↔ Senda.', status: 'coming_soon', logoText: 'J', color: '#0052CC' },
 ]
 
 const CATEGORIES = [

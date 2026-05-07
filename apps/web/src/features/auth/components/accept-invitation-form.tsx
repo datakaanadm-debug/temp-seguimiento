@@ -89,7 +89,7 @@ export function AcceptInvitationForm({
       <CardHeader>
         <CardTitle>Aceptar invitación</CardTitle>
         <CardDescription>
-          Completa tus datos para activar tu cuenta en Interna.
+          Completa tus datos para activar tu cuenta en Senda.
         </CardDescription>
       </CardHeader>
       <CardContent>

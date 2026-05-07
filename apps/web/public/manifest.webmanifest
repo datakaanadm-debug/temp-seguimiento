@@ -1,6 +1,6 @@
 {
-  "name": "Interna",
-  "short_name": "Interna",
+  "name": "Senda",
+  "short_name": "Senda",
   "description": "SaaS para gestión de practicantes",
   "start_url": "/",
   "display": "standalone",

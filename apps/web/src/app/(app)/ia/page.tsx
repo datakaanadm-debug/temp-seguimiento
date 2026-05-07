@@ -82,7 +82,7 @@ export default function IaPage() {
   return (
     <div className="mx-auto max-w-[1200px] px-7 py-5 pb-10">
       <SectionTitle
-        kicker="Capa IA · Interna Copilot"
+        kicker="Capa IA · Senda Copilot"
         title="Insights, resúmenes y coaching"
         sub={`${open.length} alertas abiertas · ${resolved} resueltas · ${summaries.length} resúmenes generados`}
         right={

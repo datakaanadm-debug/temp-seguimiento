@@ -14,6 +14,7 @@ const ACCENTS = [
   { id: 'terracotta', label: 'Terracota', c: '#c8532b' },
   { id: 'ink', label: 'Tinta', c: '#2a2320' },
   { id: 'olive', label: 'Oliva', c: '#5a7a3f' },
+  { id: 'dkn', label: 'DKN', c: '#00a39c' },
 ]
 
 export default function EmpresaPage() {
@@ -32,7 +33,7 @@ export default function EmpresaPage() {
     industry: settings.industry ?? 'Tecnología',
     size: settings.size ?? '11-50',
     data_residency: (tenant?.data_residency ?? 'latam') as 'latam' | 'us' | 'eu',
-    accent: theme.accent ?? 'cobalt',
+    accent: theme.brand_accent ?? 'cobalt',
   })
   const [saving, setSaving] = useState(false)
 
@@ -46,7 +47,7 @@ export default function EmpresaPage() {
       industry: (tenant.settings as any)?.industry ?? 'Tecnología',
       size: (tenant.settings as any)?.size ?? '11-50',
       data_residency: tenant.data_residency,
-      accent: (tenant.theme as any)?.accent ?? 'cobalt',
+      accent: (tenant.theme as any)?.brand_accent ?? 'cobalt',
     })
   }, [tenant?.id])
 

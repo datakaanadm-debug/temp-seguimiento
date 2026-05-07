@@ -1,7 +1,7 @@
 {
-    "name": "interna/api",
+    "name": "senda/api",
     "type": "project",
-    "description": "Interna API — SaaS multi-tenant para gestión de practicantes",
+    "description": "Senda API — SaaS multi-tenant para gestión de practicantes",
     "license": "proprietary",
     "require": {
         "php": "^8.2",

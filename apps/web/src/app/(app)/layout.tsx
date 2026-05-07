@@ -8,6 +8,7 @@ import { AuthProvider } from '@/providers/auth-provider'
 import { RealtimeProvider } from '@/providers/realtime-provider'
 import { TourLauncher } from '@/features/onboarding/tour/tour-launcher'
 import { AwardedBadgeListener } from '@/features/gamification/components/awarded-badge-listener'
+import { AccentLoader } from '@/components/shared/accent-loader'
 import { requireSession } from '@/lib/auth/server'
 
 export default async function AppShellLayout({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
           <PresenceBar />
           <TourLauncher />
           <AwardedBadgeListener />
+          <AccentLoader />
         </div>
       </RealtimeProvider>
     </AuthProvider>

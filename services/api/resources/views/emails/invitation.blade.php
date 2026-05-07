@@ -47,7 +47,7 @@
                             </p>
                             <p style="margin:0 0 14px;font-size:14.5px;line-height:1.6;color:#3a3a3a;">
                                 <strong>{{ $inviterName }}</strong> te invitó a unirte a {{ $tenantName }} en
-                                <span style="color:{{ $primaryDark }};font-weight:600;">Interna</span>
+                                <span style="color:{{ $primaryDark }};font-weight:600;">Senda</span>
                                 como <strong>{{ $roleLabel }}</strong>.
                             </p>
                             <p style="margin:0 0 28px;font-size:14.5px;line-height:1.6;color:#3a3a3a;">
@@ -87,7 +87,7 @@
                                 Si no esperabas este correo, puedes ignorarlo — la invitación expirará sola.
                             </p>
                             <p style="margin:8px 0 0;font-size:11.5px;line-height:1.5;color:#8a8a8a;">
-                                Enviado por <span style="color:{{ $primaryDark }};font-weight:600;">{{ $tenantName }}</span> vía Interna.
+                                Enviado por <span style="color:{{ $primaryDark }};font-weight:600;">{{ $tenantName }}</span> vía Senda.
                             </p>
                         </td>
                     </tr>

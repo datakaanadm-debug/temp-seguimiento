@@ -27,7 +27,7 @@ const mono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: { default: 'Interna', template: '%s · Interna' },
+  title: { default: 'Senda', template: '%s · Senda' },
   description: 'Plataforma de gestión de practicantes',
   manifest: '/manifest.webmanifest',
 }

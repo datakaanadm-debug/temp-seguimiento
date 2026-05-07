@@ -29,7 +29,7 @@ class DemoSeeder extends Seeder
 
         DB::transaction(function () {
             [$acme, $panda, $grow] = [
-                $this->seedTenant('acme-tech',    'Acme Tech',      'growth'),
+                $this->seedTenant('acme-tech',    'DKN Soluciones Tecnológicas', 'growth'),
                 $this->seedTenant('panda-studio', 'Panda Studio',   'starter'),
                 $this->seedTenant('grow-agency',  'Grow Agency',    'business'),
             ];
@@ -47,6 +47,29 @@ class DemoSeeder extends Seeder
     {
         $id = (string) Str::uuid();
 
+        // Por tenant elegimos accent slug + colores HEX coherentes para emails.
+        //   - acme-tech (DKN)   → dkn / teal #00a39c
+        //   - panda-studio     → terracotta
+        //   - grow-agency      → olive
+        $accentMap = [
+            'acme-tech' => [
+                'slug' => 'dkn',
+                'primary' => '#00a39c',
+                'dark' => '#007973',
+            ],
+            'panda-studio' => [
+                'slug' => 'terracotta',
+                'primary' => '#c8532b',
+                'dark' => '#8e3a1d',
+            ],
+            'grow-agency' => [
+                'slug' => 'olive',
+                'primary' => '#5a7a3f',
+                'dark' => '#3e572b',
+            ],
+        ];
+        $accent = $accentMap[$slug] ?? ['slug' => 'cobalt', 'primary' => '#3a5f8a', 'dark' => '#254260'];
+
         DB::table('tenants')->insert([
             'id' => $id,
             'slug' => $slug,
@@ -59,9 +82,13 @@ class DemoSeeder extends Seeder
                 'university_reports_enabled' => true,
             ]),
             'theme' => json_encode([
-                'brand_primary' => '#0891B2',
-                'brand_dark' => '#0E7490',
-                'brand_accent' => '#06B6D4',
+                // brand_primary/dark son HEX para emails (tipados en
+                // resources/views/emails/invitation.blade.php).
+                'brand_primary' => $accent['primary'],
+                'brand_dark' => $accent['dark'],
+                // brand_accent es un slug que el AccentLoader del frontend
+                // convierte en `<html data-accent="...">` y resuelve vars.
+                'brand_accent' => $accent['slug'],
             ]),
             'data_residency' => 'latam',
             'created_at' => now(),

@@ -80,12 +80,12 @@ export function Sidebar() {
           style={{ fontSize: 15, lineHeight: 1 }}
           aria-hidden
         >
-          i
+          s
         </div>
         {!collapsed && (
           <div className="min-w-0">
             <div className="truncate text-[13px] font-semibold text-ink">
-              {tenant?.name ?? 'Interna'}
+              {tenant?.name ?? 'Senda'}
             </div>
             <div className="text-[10px] uppercase tracking-[0.6px] text-ink-3 font-mono">
               {tenant?.plan ?? 'workspace'}

@@ -56,7 +56,7 @@ export default function BienvenidaPage() {
           </div>
           <div>
             <div className="text-[13px] font-semibold text-ink">
-              Bienvenido a {tenant?.name ?? 'Interna'}
+              Bienvenido a {tenant?.name ?? 'Senda'}
             </div>
             <div className="text-[11px] text-ink-3">
               Configura tu cuenta en menos de 3 minutos

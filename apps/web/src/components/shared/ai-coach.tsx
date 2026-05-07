@@ -26,7 +26,7 @@ const INITIAL_MESSAGES: Message[] = [
   {
     id: 'm1',
     role: 'assistant',
-    text: '¡Hola! Soy tu copiloto Interna. Puedo resumir bitácoras, sugerir prioridades, detectar bloqueos y proponer acciones. ¿En qué te ayudo?',
+    text: '¡Hola! Soy tu copiloto Senda. Puedo resumir bitácoras, sugerir prioridades, detectar bloqueos y proponer acciones. ¿En qué te ayudo?',
     time: 'ahora',
   },
 ]
@@ -119,7 +119,7 @@ export function AiCoach() {
               <Icon.Sparkles size={14} />
             </div>
             <div className="flex-1">
-              <div className="text-[13px] font-semibold text-ink">Coach Interna</div>
+              <div className="text-[13px] font-semibold text-ink">Coach Senda</div>
               <div className="text-[10.5px] text-ink-3">IA contextual · siempre en beta</div>
             </div>
             <PaperBadge tone="accent" className="!text-[9px]">

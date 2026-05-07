@@ -78,7 +78,7 @@ export function Topbar() {
 
       {/* Breadcrumbs */}
       <nav className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-ink-3">
-        <Link href="/" className="hover:text-ink">{tenant?.name ?? 'Interna'}</Link>
+        <Link href="/" className="hover:text-ink">{tenant?.name ?? 'Senda'}</Link>
         {crumbs.map((c) => (
           <span key={c.href} className="flex items-center gap-1.5">
             <Icon.Chev size={11} className="text-ink-muted" />

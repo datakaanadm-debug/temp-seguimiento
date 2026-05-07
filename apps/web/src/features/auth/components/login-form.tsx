@@ -59,7 +59,7 @@ export function LoginForm() {
     <Card>
       <CardHeader>
         <CardTitle>Iniciar sesión</CardTitle>
-        <CardDescription>Accede a tu espacio de trabajo Interna.</CardDescription>
+        <CardDescription>Accede a tu espacio de trabajo Senda.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -117,7 +117,7 @@ export function LoginForm() {
           </Button>
 
           <p className="text-center text-xs text-muted-foreground">
-            ¿Nuevo en Interna?{' '}
+            ¿Nuevo en Senda?{' '}
             <Link href="/registro" className="text-primary hover:underline">
               Crea tu empresa
             </Link>
