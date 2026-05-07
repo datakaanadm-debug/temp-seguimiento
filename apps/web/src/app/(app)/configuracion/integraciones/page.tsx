@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperCard, PaperBadge } from '@/components/ui/primitives'
+import { useRequireRole } from '@/hooks/use-require-role'
 import { cn } from '@/lib/utils'
 
 type Integration = {
@@ -37,10 +38,14 @@ const CATEGORIES = [
 ] as const
 
 export default function IntegracionesPage() {
+  // Solo tenant_admin gestiona integraciones del workspace.
+  const allowed = useRequireRole(['tenant_admin'])
   const [filter, setFilter] = useState<(typeof CATEGORIES)[number]['id']>('all')
   const items = filter === 'all' ? INTEGRATIONS : INTEGRATIONS.filter((i) => i.category === filter)
 
   const connected = INTEGRATIONS.filter((i) => i.status === 'connected').length
+
+  if (!allowed) return null
 
   return (
     <div>

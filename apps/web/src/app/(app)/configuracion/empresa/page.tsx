@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperCard } from '@/components/ui/primitives'
 import { useAuth } from '@/providers/auth-provider'
 import { useCan } from '@/hooks/use-can'
+import { useRequireRole } from '@/hooks/use-require-role'
 import { removeTenantLogo, updateTenant, uploadTenantLogo } from '@/features/auth/api'
 
 const ACCENTS = [
@@ -16,6 +17,9 @@ const ACCENTS = [
 ]
 
 export default function EmpresaPage() {
+  // Solo tenant_admin puede entrar; cualquier otro rol redirige (no leak
+  // de info del tenant — incluso lectura).
+  const allowed = useRequireRole(['tenant_admin'])
   const { tenant, setTenant } = useAuth()
   const canEdit = useCan('edit_company')
   const settings = (tenant?.settings ?? {}) as Record<string, any>
@@ -71,6 +75,8 @@ export default function EmpresaPage() {
       setSaving(false)
     }
   }
+
+  if (!allowed) return null
 
   return (
     <form onSubmit={save}>

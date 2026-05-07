@@ -4,22 +4,48 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icon, type IconName } from '@/components/ui/icon'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/providers/auth-provider'
+import type { MembershipRole } from '@/types/api'
 
-const NAV: Array<{ href: string; label: string; icon: IconName; section: string }> = [
+interface NavItem {
+  href: string
+  label: string
+  icon: IconName
+  section: 'Personal' | 'Workspace'
+  /** Roles que pueden ver este link. Si está vacío, todos. */
+  roles?: MembershipRole[]
+}
+
+const NAV: NavItem[] = [
+  // Personal — todos los roles
   { href: '/configuracion/perfil', label: 'Mi perfil', icon: 'People', section: 'Personal' },
   { href: '/configuracion/notificaciones', label: 'Notificaciones', icon: 'Bell', section: 'Personal' },
 
-  { href: '/configuracion/empresa', label: 'Empresa', icon: 'Onboard', section: 'Workspace' },
-  { href: '/configuracion/equipo', label: 'Usuarios y equipo', icon: 'People', section: 'Workspace' },
-  { href: '/configuracion/roles', label: 'Roles y permisos', icon: 'Settings', section: 'Workspace' },
-  { href: '/configuracion/onboarding-plantilla', label: 'Plantilla de onboarding', icon: 'Onboard', section: 'Workspace' },
-  { href: '/configuracion/integraciones', label: 'Integraciones', icon: 'Auto', section: 'Workspace' },
-  { href: '/configuracion/facturacion', label: 'Facturación', icon: 'Attach', section: 'Workspace' },
+  // Workspace — solo staff. Filtros por rol granulares:
+  //   - empresa, roles, integraciones, facturacion → solo tenant_admin
+  //   - equipo, onboarding-plantilla → tenant_admin + hr (también gestionan)
+  { href: '/configuracion/empresa', label: 'Empresa', icon: 'Onboard', section: 'Workspace',
+    roles: ['tenant_admin'] },
+  { href: '/configuracion/equipo', label: 'Usuarios y equipo', icon: 'People', section: 'Workspace',
+    roles: ['tenant_admin', 'hr'] },
+  { href: '/configuracion/roles', label: 'Roles y permisos', icon: 'Settings', section: 'Workspace',
+    roles: ['tenant_admin'] },
+  { href: '/configuracion/onboarding-plantilla', label: 'Plantilla de onboarding', icon: 'Onboard', section: 'Workspace',
+    roles: ['tenant_admin', 'hr'] },
+  { href: '/configuracion/integraciones', label: 'Integraciones', icon: 'Auto', section: 'Workspace',
+    roles: ['tenant_admin'] },
+  { href: '/configuracion/facturacion', label: 'Facturación', icon: 'Attach', section: 'Workspace',
+    roles: ['tenant_admin'] },
 ]
 
 export default function ConfiguracionLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const sections = Array.from(new Set(NAV.map((n) => n.section)))
+  const { user } = useAuth()
+  const role = user?.role ?? null
+
+  // Filtrado por rol: si el item declara `roles`, debe incluir el del user.
+  const visible = NAV.filter((n) => !n.roles || (role && n.roles.includes(role)))
+  const sections = Array.from(new Set(visible.map((n) => n.section)))
 
   return (
     <div className="mx-auto max-w-[1200px] px-7 py-5 pb-10">
@@ -34,7 +60,7 @@ export default function ConfiguracionLayout({ children }: { children: React.Reac
                 {section}
               </div>
               <nav>
-                {NAV.filter((n) => n.section === section).map((n) => {
+                {visible.filter((n) => n.section === section).map((n) => {
                   const active = pathname === n.href || pathname.startsWith(n.href + '/')
                   const IconC = Icon[n.icon]
                   return (

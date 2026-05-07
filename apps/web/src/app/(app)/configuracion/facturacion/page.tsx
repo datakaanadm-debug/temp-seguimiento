@@ -3,6 +3,7 @@
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperCard, PaperBadge } from '@/components/ui/primitives'
 import { useAuth } from '@/providers/auth-provider'
+import { useRequireRole } from '@/hooks/use-require-role'
 import { cn } from '@/lib/utils'
 
 interface Plan {
@@ -53,11 +54,15 @@ const INVOICES = [
 ]
 
 export default function FacturacionPage() {
+  // Solo tenant_admin ve facturación — info financiera del workspace.
+  const allowed = useRequireRole(['tenant_admin'])
   const { tenant } = useAuth()
   const currentPlan = tenant?.plan ?? 'growth'
   const practicantesUsed = 24
   const practicantesMax = PLANS.find((p) => p.id === currentPlan)?.practicantes ?? 50
   const pct = practicantesMax === Infinity ? 0 : (practicantesUsed / practicantesMax) * 100
+
+  if (!allowed) return null
 
   return (
     <div>
