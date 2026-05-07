@@ -63,13 +63,15 @@ final class ReportRunController extends Controller
     {
         $this->authorize('create', ReportRun::class);
 
+        // `Request::string()` retorna Stringable; el command tipa string,
+        // cast explícito + nullable para los opcionales.
         $run = $this->requestHandler->handle(new RequestReport(
-            templateId: $request->string('template_id'),
+            templateId: (string) $request->string('template_id'),
             requester: $request->user(),
-            subjectType: $request->string('subject_type') ?: null,
-            subjectId: $request->string('subject_id') ?: null,
-            periodStart: $request->string('period_start') ?: null,
-            periodEnd: $request->string('period_end') ?: null,
+            subjectType: $request->filled('subject_type') ? (string) $request->string('subject_type') : null,
+            subjectId: $request->filled('subject_id') ? (string) $request->string('subject_id') : null,
+            periodStart: $request->filled('period_start') ? (string) $request->string('period_start') : null,
+            periodEnd: $request->filled('period_end') ? (string) $request->string('period_end') : null,
             parameters: (array) $request->input('parameters', []),
         ));
 

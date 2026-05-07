@@ -228,14 +228,52 @@ export default function AnaliticaPage() {
   )
 }
 
+interface HeatmapBucket {
+  weekday: number
+  hour: number
+  count: number
+}
+
+interface HeatmapResponse {
+  days: number
+  timezone: string
+  total: number
+  max_count: number
+  buckets: HeatmapBucket[]
+}
+
+/**
+ * Heatmap REAL: lee `/api/v1/analytics/activity-heatmap` que cuenta eventos
+ * (daily_reports, comments, tasks completadas, time_entries) agrupados por
+ * (día_semana × hora) en últimos 30 días. La opacidad de cada celda se
+ * normaliza contra `max_count` para que el bucket más activo sea opaco 1.
+ *
+ * Si el tenant no tiene actividad en el periodo, todas las celdas quedan
+ * casi transparentes — eso es información honesta, no decoración.
+ */
 function ActivityHeatmap() {
   const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
-  // Pattern estable seed-based (no Math.random en SSR)
-  const intensity = (d: number, h: number) => {
-    if (d >= 5) return 0.1 + ((h + d) % 3) * 0.05
-    if (h >= 9 && h <= 19) return 0.5 + (((d * 3 + h) % 5) / 10)
-    return 0.1 + ((h + d) % 4) * 0.05
-  }
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['analytics-heatmap', 30],
+    queryFn: () =>
+      apiClient.get<HeatmapResponse>('/api/v1/analytics/activity-heatmap', {
+        searchParams: { days: 30 },
+      }),
+    staleTime: 5 * 60_000,
+  })
+
+  // Indexa por "d-h" para lookup O(1) sin recorrer 168 buckets en cada celda.
+  const byKey = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const b of data?.buckets ?? []) {
+      m.set(`${b.weekday}-${b.hour}`, b.count)
+    }
+    return m
+  }, [data])
+
+  const max = Math.max(1, data?.max_count ?? 1)
+
   return (
     <div className="grid gap-2.5" style={{ gridTemplateColumns: '80px 1fr' }}>
       <div />
@@ -253,18 +291,27 @@ function ActivityHeatmap() {
         <div key={d} className="contents">
           <span className="self-center text-[11px] text-ink-3">{d}</span>
           <div className="grid gap-[2px]" style={{ gridTemplateColumns: 'repeat(24, 1fr)' }}>
-            {Array.from({ length: 24 }, (_, h) => (
-              <div
-                key={h}
-                className="rounded-[2px]"
-                style={{
-                  aspectRatio: '1',
-                  background: 'hsl(var(--accent-h))',
-                  opacity: intensity(di, h),
-                }}
-                title={`${d} ${h}:00`}
-              />
-            ))}
+            {Array.from({ length: 24 }, (_, h) => {
+              const count = byKey.get(`${di}-${h}`) ?? 0
+              // Floor 0.06 para que la grilla siga siendo visible aún sin datos
+              const opacity = isLoading
+                ? 0.08
+                : count === 0
+                  ? 0.06
+                  : 0.15 + (count / max) * 0.85
+              return (
+                <div
+                  key={h}
+                  className="rounded-[2px]"
+                  style={{
+                    aspectRatio: '1',
+                    background: 'hsl(var(--accent-h))',
+                    opacity,
+                  }}
+                  title={`${d} ${h}:00 — ${count} ${count === 1 ? 'evento' : 'eventos'}`}
+                />
+              )
+            })}
           </div>
         </div>
       ))}

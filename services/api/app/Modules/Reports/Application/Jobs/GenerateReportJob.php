@@ -17,9 +17,9 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Spatie\LaravelPdf\Facades\Pdf;
 
 /**
  * Job async que genera un reporte PDF. Reconstituye el contexto de tenant
@@ -58,12 +58,11 @@ final class GenerateReportJob implements ShouldQueue
                     "reports/{$run->id}-" . Str::slug($run->template->name) . '.pdf'
                 );
 
-                // Render a archivo temporal local, subir a R2
+                // Render a archivo temporal local con dompdf (PHP puro,
+                // sin dependencias de Chrome/Node), subir luego a R2.
                 $tmp = tempnam(sys_get_temp_dir(), 'rpt-') . '.pdf';
-                Pdf::view($view, $data)
-                    ->format('A4')
-                    ->margins(15, 15, 15, 15)
-                    ->save($tmp);
+                $pdf = Pdf::loadView($view, $data)->setPaper('a4');
+                file_put_contents($tmp, $pdf->output());
 
                 $bytes = filesize($tmp) ?: 0;
                 Storage::disk(TenantStorage::DISK)->put($storedKey, file_get_contents($tmp));

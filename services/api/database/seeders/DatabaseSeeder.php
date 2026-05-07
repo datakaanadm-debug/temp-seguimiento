@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SystemPermissionsSeeder::class,       // permisos atómicos del sistema
             DemoSeeder::class,                    // 3 tenants con data realista
+            ReportTemplateSeeder::class,          // plantillas de reporte por tenant
         ]);
     }
 }
