@@ -6,8 +6,8 @@ import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperCard, PaperBadge } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useReportRuns, useReportTemplates } from '@/features/reports/hooks/use-reports'
-import { getDownloadUrl, requestReport } from '@/features/reports/api/reports'
+import { useReportRuns, useReportTemplates, useRequestReport } from '@/features/reports/hooks/use-reports'
+import { getDownloadUrl } from '@/features/reports/api/reports'
 import { formatBytes, cn } from '@/lib/utils'
 import type { ReportTemplate, RunStatus } from '@/types/api'
 
@@ -38,17 +38,27 @@ export default function ReportesPage() {
   const { data: runsData, isLoading: runsLoading } = useReportRuns({ mine: false })
   const { data: templatesData, isLoading: templatesLoading } = useReportTemplates()
   const runs = runsData?.data ?? []
+  // total: conteo REAL en BD (paginated meta), no solo lo que cabe en la página.
+  const totalRuns = runsData?.meta?.total ?? runs.length
   const templates = templatesData?.data ?? []
 
   const [generatingId, setGeneratingId] = useState<string | null>(null)
+  const requestMutation = useRequestReport()
 
   const handleGenerate = async (template: ReportTemplate) => {
+    // El template university requiere subject + period — redirigimos al
+    // form dedicado en lugar de POSTear sin parámetros (failure garantizado).
+    if (template.kind === 'university') {
+      window.location.href = '/reportes/universidad/solicitar'
+      return
+    }
     setGeneratingId(template.id)
     try {
-      await requestReport({ template_id: template.id })
-      toast.success(`Reporte "${template.name}" encolado. Revisa el historial.`)
-    } catch (e: any) {
-      toast.error(e?.message ?? 'No se pudo solicitar el reporte.')
+      // Hook centralizado: maneja optimistic insert + invalidate +
+      // toast por status (completed/queued/failed) + 429/422 error code.
+      await requestMutation.mutateAsync({ template_id: template.id })
+    } catch {
+      // Toast ya mostrado por onError del hook.
     } finally {
       setGeneratingId(null)
     }
@@ -68,7 +78,7 @@ export default function ReportesPage() {
       <SectionTitle
         kicker="Reportes ejecutivos"
         title="Genera y descarga reportes"
-        sub={`${runs.length} reportes generados · ${templates.length} plantillas disponibles`}
+        sub={`${totalRuns} reportes generados · ${templates.length} plantillas disponibles`}
         right={
           <>
             <Link
@@ -167,7 +177,7 @@ export default function ReportesPage() {
       {/* Historial */}
       <PaperCard
         title="Historial de generaciones"
-        right={<span className="text-[11px] text-ink-3">{runs.length} totales</span>}
+        right={<span className="text-[11px] text-ink-3">{totalRuns} totales</span>}
         noPad
       >
         {runsLoading ? (
@@ -199,8 +209,11 @@ export default function ReportesPage() {
                     {new Date(r.created_at).toLocaleString('es-MX', {
                       day: 'numeric',
                       month: 'short',
+                      year: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit',
+                      hour12: false,
+                      timeZone: 'America/Mexico_City',
                     })}
                     {r.file_size_bytes && ` · ${formatBytes(r.file_size_bytes)}`}
                   </div>

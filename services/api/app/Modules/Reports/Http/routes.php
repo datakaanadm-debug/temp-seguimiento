@@ -13,7 +13,7 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.member'])->group(function (
     // Report runs (generación async)
     Route::get('/reports', [ReportRunController::class, 'index'])->name('reports.index');
     Route::post('/reports', [ReportRunController::class, 'store'])
-        ->middleware('throttle:30,60')     // 30/hora por IP
+        ->middleware('throttle:60,60')     // 60/hora por IP
         ->name('reports.store');
     Route::get('/reports/{reportRun}', [ReportRunController::class, 'show'])->name('reports.show');
     Route::get('/reports/{reportRun}/download', [ReportRunController::class, 'download'])

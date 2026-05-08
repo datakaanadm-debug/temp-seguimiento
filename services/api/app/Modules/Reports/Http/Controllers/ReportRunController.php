@@ -80,9 +80,16 @@ final class ReportRunController extends Controller
             parameters: (array) $request->input('parameters', []),
         ));
 
+        // Refrescamos para reflejar el estado real tras el dispatch.
+        // Con QUEUE_CONNECTION=sync el job ya corrió y el run pasó a
+        // `completed` (o `failed`); con queue async sigue en `queued`.
+        // El cliente decide qué mensaje mostrar según `data.status`.
+        $run->refresh()->load('template');
+        $statusCode = $run->status->value === 'completed' ? 201 : 202;
+
         return response()->json([
-            'data' => ReportRunResource::make($run->load('template'))->resolve(),
-        ], 202);  // 202 Accepted — procesamiento async
+            'data' => ReportRunResource::make($run)->resolve(),
+        ], $statusCode);
     }
 
     /**

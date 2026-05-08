@@ -31,9 +31,39 @@ export function useRequestReport() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: RequestReportInput) => requestReport(input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['reports', 'runs'] })
-      toast.success('Reporte en cola. Te avisaremos cuando esté listo.')
+    onSuccess: (res: any) => {
+      // Optimistic insert: meto el run nuevo al inicio de cualquier query
+      // ['reports', 'runs', ...] que esté cacheada, así /reportes lo ve
+      // sin tener que esperar al refetch tras el navigate.
+      const newRun = res?.data
+      if (newRun?.id) {
+        qc.setQueriesData<any>({ queryKey: ['reports', 'runs'] }, (old: any) => {
+          if (!old?.data) return old
+          // Si ya está (por carrera con otra query), no duplicar.
+          if (old.data.some((r: any) => r.id === newRun.id)) return old
+          return {
+            ...old,
+            data: [newRun, ...old.data],
+            meta: old.meta ? { ...old.meta, total: (old.meta.total ?? 0) + 1 } : old.meta,
+          }
+        })
+      }
+      // refetchType:'all' fuerza el fetch incluso de queries inactivas,
+      // así al navegar a /reportes la lista trae el run real (no solo
+      // el insertado optimista).
+      qc.invalidateQueries({ queryKey: ['reports', 'runs'], refetchType: 'all' })
+
+      // Con QUEUE_CONNECTION=sync el job ejecuta inline y la respuesta
+      // ya trae status='completed'. Reflejamos el estado real para no
+      // engañar al usuario. En producción con queue async, queued.
+      const status = newRun?.status
+      if (status === 'completed') {
+        toast.success('Reporte generado. Disponible para descargar en el historial.')
+      } else if (status === 'failed') {
+        toast.error('La generación del reporte falló. Revisa el historial.')
+      } else {
+        toast.success('Reporte en cola. Te avisaremos cuando esté listo.')
+      }
     },
     onError: (e: any) => {
       // Mensajes amigables por código frecuentes (429 throttle, 422 validación)
