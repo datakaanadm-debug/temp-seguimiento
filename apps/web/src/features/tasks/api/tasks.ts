@@ -31,6 +31,7 @@ export interface CreateTaskInput {
   due_at?: string | null
   estimated_minutes?: number | null
   tag_ids?: string[]
+  collaborator_ids?: string[]
 }
 
 export async function createTask(input: CreateTaskInput): Promise<DataEnvelope<Task>> {

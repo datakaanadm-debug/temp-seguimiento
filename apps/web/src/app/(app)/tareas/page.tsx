@@ -30,7 +30,7 @@ export default function TareasPage() {
     'view',
     parseAsStringLiteral(['kanban', 'list', 'timeline', 'cal'] as const).withDefault('kanban'),
   )
-  const [projectId] = useQueryState('project_id', parseAsString)
+  const [projectId, setProjectId] = useQueryState('project_id', parseAsString)
   const [mine, setMine] = useQueryState('mine', parseAsBoolean.withDefault(false))
   const [state, setState] = useQueryState('state', parseAsString)
   const [priority, setPriority] = useQueryState('priority', parseAsString)
@@ -100,12 +100,14 @@ export default function TareasPage() {
                 state: (state as TaskState | null) ?? null,
                 priority: (priority as TaskPriority | null) ?? null,
                 assignee_id: assigneeId ?? null,
+                project_id: projectId ?? null,
                 q: q ?? null,
               }}
               onChange={(v) => {
                 setState(v.state)
                 setPriority(v.priority)
                 setAssigneeId(v.assignee_id)
+                setProjectId(v.project_id)
                 setQ(v.q)
               }}
             />

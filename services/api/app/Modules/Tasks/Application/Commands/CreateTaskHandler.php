@@ -67,6 +67,29 @@ final class CreateTaskHandler
                 ));
             }
 
+            // Multi-asignación opcional: adjunta colaboradores con role='assignee'
+            // en task_assignees. El responsable principal (assignee_id) ya quedó
+            // en la columna directa de tasks; los colaboradores van al pivote.
+            if (!empty($command->collaboratorIds)) {
+                $now = now();
+                foreach ($command->collaboratorIds as $uid) {
+                    // Evitar duplicar al responsable si vino también en la lista.
+                    if ($uid === $command->assigneeId) continue;
+                    DB::table('task_assignees')->updateOrInsert(
+                        [
+                            'task_id' => $task->id,
+                            'user_id' => $uid,
+                            'role' => 'assignee',
+                        ],
+                        [
+                            'tenant_id' => $task->tenant_id,
+                            'assigned_at' => $now,
+                            'assigned_by' => $command->actor->id,
+                        ],
+                    );
+                }
+            }
+
             DB::afterCommit(function () use ($task, $command) {
                 event(new TaskCreated($task, $command->actor));
             });

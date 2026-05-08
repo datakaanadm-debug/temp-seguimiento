@@ -30,13 +30,18 @@ final class CreateTaskRequest extends FormRequest
             'estimated_minutes' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000'],
             'tag_ids' => ['sometimes', 'array', 'max:20'],
             'tag_ids.*' => ['uuid', 'exists:tags,id'],
+            'collaborator_ids' => ['sometimes', 'array', 'max:15'],
+            'collaborator_ids.*' => ['uuid', 'exists:users,id'],
         ];
     }
 
     /**
-     * Regla de negocio: un intern solo puede asignar tareas a sí mismo o a
-     * su(s) mentor(es) activo(s). Staff (admin/hr/team_lead/mentor) puede a
-     * cualquiera del tenant.
+     * Reglas de negocio:
+     *  1. Un intern solo puede asignar tareas a sí mismo o a su(s) mentor(es)
+     *     activo(s). Staff (admin/hr/team_lead/mentor) puede a cualquiera.
+     *  2. El reviewer debe ser staff con autoridad (mentor/team_lead/hr/admin/
+     *     supervisor) — un intern NO puede ser revisor de ninguna tarea, ni
+     *     auto-asignarse como revisor.
      */
     public function withValidator(\Illuminate\Validation\Validator $validator): void
     {
@@ -44,21 +49,36 @@ final class CreateTaskRequest extends FormRequest
             $actor = $this->user();
             $role = $actor?->primaryRole()?->value;
             $assigneeId = $this->input('assignee_id');
-            if (!$assigneeId || $role !== 'intern') return;
+            if ($assigneeId && $role === 'intern' && $assigneeId !== $actor->id) {
+                $isMentor = \DB::table('mentor_assignments')
+                    ->where('intern_user_id', $actor->id)
+                    ->where('mentor_user_id', $assigneeId)
+                    ->where('status', 'active')
+                    ->exists();
+                if (!$isMentor) {
+                    $v->errors()->add(
+                        'assignee_id',
+                        'Un practicante solo puede asignar tareas a sí mismo o a su mentor.',
+                    );
+                }
+            }
 
-            if ($assigneeId === $actor->id) return;
+            // Validación de reviewer (aplica a todos los roles).
+            $reviewerId = $this->input('reviewer_id');
+            if ($reviewerId) {
+                $reviewerRole = \DB::table('memberships')
+                    ->where('user_id', $reviewerId)
+                    ->where('tenant_id', \App\Shared\Tenancy\TenantContext::currentId())
+                    ->where('status', 'active')
+                    ->value('role');
 
-            $isMentor = \DB::table('mentor_assignments')
-                ->where('intern_user_id', $actor->id)
-                ->where('mentor_user_id', $assigneeId)
-                ->where('status', 'active')
-                ->exists();
-
-            if (!$isMentor) {
-                $v->errors()->add(
-                    'assignee_id',
-                    'Un practicante solo puede asignar tareas a sí mismo o a su mentor.',
-                );
+                $allowed = ['tenant_admin', 'hr', 'team_lead', 'mentor', 'supervisor'];
+                if (!$reviewerRole || !in_array($reviewerRole, $allowed, true)) {
+                    $v->errors()->add(
+                        'reviewer_id',
+                        'El revisor debe tener rol de mentor, líder de equipo, RRHH o admin.',
+                    );
+                }
             }
         });
     }

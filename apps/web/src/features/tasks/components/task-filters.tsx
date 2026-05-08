@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Icon } from '@/components/ui/icon'
 import { apiClient } from '@/lib/api-client'
+import { listProjects } from '@/features/tasks/api/tasks'
 import { cn } from '@/lib/utils'
 import type { PaginatedResponse, Profile, TaskPriority, TaskState } from '@/types/api'
 
@@ -27,6 +28,7 @@ export interface TaskFiltersValue {
   state: TaskState | null
   priority: TaskPriority | null
   assignee_id: string | null
+  project_id: string | null
   q: string | null
 }
 
@@ -59,10 +61,24 @@ export function TaskFilters({
   })
   const people = profilesData?.data ?? []
 
-  const activeCount =
-    (value.state ? 1 : 0) + (value.priority ? 1 : 0) + (value.assignee_id ? 1 : 0) + (value.q ? 1 : 0)
+  // Proyectos para el filtro. Cargados solo cuando el dropdown está abierto
+  // para no traerlos al render inicial.
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects-task-filter'],
+    queryFn: () => listProjects({ status: 'active' }),
+    enabled: open,
+  })
+  const projects = projectsData?.data ?? []
 
-  const reset = () => onChange({ state: null, priority: null, assignee_id: null, q: null })
+  const activeCount =
+    (value.state ? 1 : 0) +
+    (value.priority ? 1 : 0) +
+    (value.assignee_id ? 1 : 0) +
+    (value.project_id ? 1 : 0) +
+    (value.q ? 1 : 0)
+
+  const reset = () =>
+    onChange({ state: null, priority: null, assignee_id: null, project_id: null, q: null })
 
   return (
     <div className="relative" ref={ref}>
@@ -156,6 +172,24 @@ export function TaskFilters({
               })}
             </div>
           </div>
+
+          <label className="mb-3 block">
+            <span className="mb-1 block font-mono text-[10.5px] uppercase tracking-[0.4px] text-ink-3">
+              Proyecto
+            </span>
+            <select
+              value={value.project_id ?? ''}
+              onChange={(e) => onChange({ ...value, project_id: e.target.value || null })}
+              className="w-full rounded-md border border-paper-line bg-paper-surface px-2.5 py-[6px] text-[12.5px] text-ink outline-none focus:border-primary"
+            >
+              <option value="">— todos los proyectos —</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <label className="mb-3 block">
             <span className="mb-1 block font-mono text-[10.5px] uppercase tracking-[0.4px] text-ink-3">

@@ -15,7 +15,11 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: (input: CreateTaskInput) => createTask(input),
     onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: taskKeys.all })
+      // refetchType:'all' fuerza el fetch incluso de queries inactivas — si
+      // creamos desde /tareas/nueva y volvemos a /tareas, el kanban estaba
+      // inactivo al invalidar y con default ('active') no refetcheaba al
+      // remontar; resultado: la tarea nueva no aparecía sin F5.
+      qc.invalidateQueries({ queryKey: taskKeys.all, refetchType: 'all' })
       toast.success('Tarea creada')
       return res
     },

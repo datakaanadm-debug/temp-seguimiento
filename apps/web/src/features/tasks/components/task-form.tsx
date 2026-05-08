@@ -21,6 +21,7 @@ const schema = z.object({
   description: z.string().max(50_000).optional().nullable(),
   priority: z.enum(['urgent', 'high', 'normal', 'low']).default('normal'),
   assignee_id: z.string().uuid().nullable().optional(),
+  collaborator_ids: z.array(z.string().uuid()).max(15).optional().default([]),
   key_result_id: z.string().uuid().nullable().optional(),
   due_at: z.string().optional().nullable(),
   estimated_minutes: z.number().int().min(0).max(100_000).optional().nullable(),
@@ -104,11 +105,15 @@ export function TaskForm({ projectId, onCreated }: { projectId: string; onCreate
       description: '',
       priority: 'normal',
       assignee_id: null,
+      collaborator_ids: [],
       key_result_id: null,
       due_at: null,
       estimated_minutes: null,
     },
   })
+
+  const collaboratorIds = form.watch('collaborator_ids') ?? []
+  const assigneeId = form.watch('assignee_id')
 
   const onSubmit = async (data: FormValues) => {
     const res = await mutateAsync({
@@ -117,9 +122,24 @@ export function TaskForm({ projectId, onCreated }: { projectId: string; onCreate
       due_at: data.due_at || null,
       assignee_id: data.assignee_id || null,
       key_result_id: data.key_result_id || null,
+      // Backend dedupea contra assignee_id, pero filtramos aquí también
+      // para no enviar ruido si el usuario eligió a la misma persona en
+      // ambos campos.
+      collaborator_ids: (data.collaborator_ids ?? []).filter(
+        (id) => id !== data.assignee_id,
+      ),
     })
     if (onCreated) onCreated(res.data.id)
     else router.push(`/tareas/${res.data.id}`)
+  }
+
+  const toggleCollaborator = (uid: string) => {
+    const current = form.getValues('collaborator_ids') ?? []
+    if (current.includes(uid)) {
+      form.setValue('collaborator_ids', current.filter((x) => x !== uid))
+    } else {
+      form.setValue('collaborator_ids', [...current, uid])
+    }
   }
 
   return (
@@ -177,7 +197,7 @@ export function TaskForm({ projectId, onCreated }: { projectId: string; onCreate
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="assignee_id">Asignar a</Label>
+          <Label htmlFor="assignee_id">Responsable principal</Label>
           <select
             id="assignee_id"
             {...form.register('assignee_id')}
@@ -203,6 +223,43 @@ export function TaskForm({ projectId, onCreated }: { projectId: string; onCreate
           />
         </div>
       </div>
+
+      {/* Colaboradores: solo para staff. Un intern no asigna a múltiples,
+          modelo C dice que un practicante crea tareas para sí mismo + mentor. */}
+      {!isIntern && (
+        <div className="space-y-2">
+          <Label>
+            Colaboradores
+            <span className="ml-2 font-mono text-[10px] text-ink-3">opcional</span>
+          </Label>
+          <p className="text-[11px] text-ink-3">
+            Personas adicionales asignadas a esta tarea, además del responsable.
+            Ven la tarea en su lista y pueden comentarla.
+          </p>
+          <div className="flex flex-wrap gap-1.5 rounded-md border border-input bg-background p-2 min-h-[44px]">
+            {people
+              .filter((p) => p.user_id !== assigneeId)
+              .map((p) => {
+                const checked = collaboratorIds.includes(p.user_id)
+                return (
+                  <button
+                    key={p.user_id}
+                    type="button"
+                    onClick={() => toggleCollaborator(p.user_id)}
+                    className={
+                      checked
+                        ? 'inline-flex items-center gap-1 rounded-full bg-primary px-2 py-[3px] text-[11px] text-primary-foreground'
+                        : 'inline-flex items-center gap-1 rounded-full border border-paper-line bg-paper-surface px-2 py-[3px] text-[11px] text-ink-2 hover:border-paper-line-soft'
+                    }
+                  >
+                    {checked && <span className="text-[9px]">✓</span>}
+                    {p.user?.name?.split(' ')[0] ?? p.user?.email}
+                  </button>
+                )
+              })}
+          </div>
+        </div>
+      )}
 
       {krOptions.length > 0 && (
         <div className="space-y-2">

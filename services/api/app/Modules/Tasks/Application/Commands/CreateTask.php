@@ -10,6 +10,8 @@ final readonly class CreateTask
 {
     /**
      * @param list<string> $tagIds
+     * @param list<string> $collaboratorIds Usuarios con rol task_assignees.role='assignee'
+     *                                       (multi-asignación además del responsable principal).
      */
     public function __construct(
         public string $projectId,
@@ -25,5 +27,6 @@ final readonly class CreateTask
         public ?string $dueAt = null,
         public ?int $estimatedMinutes = null,
         public array $tagIds = [],
+        public array $collaboratorIds = [],
     ) {}
 }

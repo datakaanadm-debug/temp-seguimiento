@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\Tasks\Http\Controllers;
 
+use App\Modules\Identity\Domain\Enums\MembershipRole;
 use App\Modules\Tasks\Application\Commands\CreateProject;
 use App\Modules\Tasks\Application\Commands\CreateProjectHandler;
 use App\Modules\Tasks\Domain\Events\ProjectCompleted;
 use App\Modules\Tasks\Domain\Project;
 use App\Modules\Tasks\Http\Requests\CreateProjectRequest;
 use App\Modules\Tasks\Http\Resources\ProjectResource;
+use App\Shared\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -33,6 +35,30 @@ final class ProjectController extends Controller
         }
         if ($status = $request->query('status')) {
             $query->where('status', $status);
+        }
+
+        // Scoping por rol: admin/HR ven todo; el resto ve proyectos de teams
+        // donde son members o leads. Sin esto un practicante ve TODOS los
+        // proyectos del tenant en /proyectos y en pickers.
+        $user = $request->user();
+        $role = $user->primaryRole();
+        $tenantId = TenantContext::currentId();
+        if (!in_array($role, [MembershipRole::TenantAdmin, MembershipRole::HR], true)) {
+            $query->where(function ($q) use ($user, $tenantId) {
+                // Member del team del proyecto
+                $q->whereIn('team_id', function ($sub) use ($user, $tenantId) {
+                    $sub->select('team_id')->from('team_memberships')
+                        ->where('tenant_id', $tenantId)
+                        ->where('user_id', $user->id)
+                        ->whereNull('left_at');
+                });
+                // Lead del team
+                $q->orWhereIn('team_id', function ($sub) use ($user, $tenantId) {
+                    $sub->select('id')->from('teams')
+                        ->where('tenant_id', $tenantId)
+                        ->where('lead_user_id', $user->id);
+                });
+            });
         }
 
         $projects = $query->paginate(20);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Tasks\Http\Controllers;
 
+use App\Modules\Identity\Domain\Enums\MembershipRole;
 use App\Modules\Tasks\Application\Commands\ChangeTaskState;
 use App\Modules\Tasks\Application\Commands\ChangeTaskStateHandler;
 use App\Modules\Tasks\Application\Commands\CreateTask;
@@ -16,9 +17,11 @@ use App\Modules\Tasks\Http\Requests\ChangeTaskStateRequest;
 use App\Modules\Tasks\Http\Requests\CreateTaskRequest;
 use App\Modules\Tasks\Http\Requests\UpdateTaskRequest;
 use App\Modules\Tasks\Http\Resources\TaskResource;
+use App\Shared\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class TaskController extends Controller
@@ -43,6 +46,16 @@ final class TaskController extends Controller
         if ($listId = $request->query('list_id')) {
             $query->where('list_id', $listId);
         }
+        // Filtro por subtareas: ?parent_task_id=xxx muestra las hijas de una
+        // tarea concreta. ANTES no estaba aplicado y devolvía todas las del
+        // tenant — el panel "Subtareas" del detalle se llenaba con basura.
+        if ($parent = $request->query('parent_task_id')) {
+            $query->where('parent_task_id', $parent);
+        }
+        // Filtro por OKR vinculado: usado por widgets de progreso de KR.
+        if ($kr = $request->query('key_result_id')) {
+            $query->where('key_result_id', $kr);
+        }
         if ($state = $request->query('state')) {
             $query->where('state', $state);
         }
@@ -63,6 +76,13 @@ final class TaskController extends Controller
                 ->where('title', 'ilike', "%{$q}%")
                 ->orWhere('description', 'ilike', "%{$q}%"));
         }
+
+        // Modelo C: scoping por rol/team. Admin/HR ven todo; team_lead ve
+        // tareas de proyectos de teams donde es lead; mentor/intern/supervisor
+        // ven sus tareas (assignee/reviewer/creator/watcher) + las de teams
+        // donde son members. Sin esto un practicante ve TODO el tenant en
+        // lista y luego 404a al abrir un detalle ajeno (info-leak + UX rota).
+        $this->scopeByRole($query, $request->user());
 
         $sort = $request->query('sort', 'position');
         $dir = $request->query('dir', 'asc') === 'desc' ? 'desc' : 'asc';
@@ -111,6 +131,7 @@ final class TaskController extends Controller
             estimatedMinutes: $request->has('estimated_minutes')
                 ? (int) $request->integer('estimated_minutes') : null,
             tagIds: (array) $request->input('tag_ids', []),
+            collaboratorIds: (array) $request->input('collaborator_ids', []),
         ));
 
         return response()->json([
@@ -159,5 +180,69 @@ final class TaskController extends Controller
         $task->delete();
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Scoping del listing por rol del usuario (modelo C).
+     *
+     * - tenant_admin / hr → ven todo el tenant.
+     * - team_lead       → ven tareas suyas + tareas de proyectos en teams donde son lead.
+     * - mentor          → ven tareas suyas + de practicantes que mentorean.
+     * - intern / supervisor / viewer → ven sus tareas + las de proyectos en teams donde son members.
+     *
+     * Modifica $query in-place con un OR-group de condiciones de visibilidad.
+     */
+    private function scopeByRole($query, $user): void
+    {
+        $role = $user->primaryRole();
+        $tenantId = TenantContext::currentId();
+
+        // Admin y HR: sin restricción adicional, devuelven todo el tenant.
+        if (in_array($role, [MembershipRole::TenantAdmin, MembershipRole::HR], true)) {
+            return;
+        }
+
+        $query->where(function ($q) use ($user, $role, $tenantId) {
+            // Siempre: tareas donde uno es protagonista
+            $q->where('assignee_id', $user->id)
+                ->orWhere('reviewer_id', $user->id)
+                ->orWhere('created_by', $user->id)
+                // Watcher en pivote
+                ->orWhereIn('id', function ($sub) use ($user) {
+                    $sub->select('task_id')->from('task_assignees')
+                        ->where('user_id', $user->id);
+                });
+
+            // Tareas de proyectos cuyo team incluye al usuario (members o lead).
+            $q->orWhereIn('project_id', function ($sub) use ($user, $tenantId) {
+                $sub->select('p.id')->from('projects as p')
+                    ->whereIn('p.team_id', function ($t) use ($user, $tenantId) {
+                        $t->select('team_id')->from('team_memberships')
+                            ->where('tenant_id', $tenantId)
+                            ->where('user_id', $user->id)
+                            ->whereNull('left_at');
+                    });
+            });
+
+            // Team lead: además los proyectos de teams donde lead_user_id = uno
+            if ($role === MembershipRole::TeamLead) {
+                $q->orWhereIn('project_id', function ($sub) use ($user, $tenantId) {
+                    $sub->select('p.id')->from('projects as p')
+                        ->join('teams as t', 't.id', '=', 'p.team_id')
+                        ->where('t.tenant_id', $tenantId)
+                        ->where('t.lead_user_id', $user->id);
+                });
+            }
+
+            // Mentor: además tareas asignadas a sus interns (mentor_assignments)
+            if ($role === MembershipRole::Mentor) {
+                $q->orWhereIn('assignee_id', function ($sub) use ($user, $tenantId) {
+                    $sub->select('intern_user_id')->from('mentor_assignments')
+                        ->where('tenant_id', $tenantId)
+                        ->where('mentor_user_id', $user->id)
+                        ->where('status', 'active');
+                });
+            }
+        });
     }
 }

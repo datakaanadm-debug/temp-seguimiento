@@ -65,10 +65,13 @@ final class TimeEntryController extends Controller
         $this->authorize('view', $task);
 
         try {
+            // `Request::string()` retorna Stringable; el command tipa ?string,
+            // así que casteamos explícitamente para no chocar con el strict
+            // type del constructor (mismo bug que ya arreglamos en reports).
             $entry = $this->startHandler->handle(new StartTimer(
                 taskId: $task->id,
                 user: $request->user(),
-                note: $request->string('note') ?: null,
+                note: $request->filled('note') ? (string) $request->string('note') : null,
             ));
         } catch (TimerAlreadyRunning $e) {
             throw ValidationException::withMessages(['timer' => $e->getMessage()]);
@@ -84,7 +87,7 @@ final class TimeEntryController extends Controller
         $stopped = $this->stopHandler->handle(new StopTimer(
             timeEntryId: $entry->id,
             user: $request->user(),
-            note: $request->string('note') ?: null,
+            note: $request->filled('note') ? (string) $request->string('note') : null,
         ));
 
         return response()->json([
@@ -99,9 +102,9 @@ final class TimeEntryController extends Controller
         $entry = $this->manualHandler->handle(new AddManualTimeEntry(
             taskId: $task->id,
             user: $request->user(),
-            startedAt: new \DateTimeImmutable($request->string('started_at')),
-            endedAt: new \DateTimeImmutable($request->string('ended_at')),
-            note: $request->string('note') ?: null,
+            startedAt: new \DateTimeImmutable((string) $request->string('started_at')),
+            endedAt: new \DateTimeImmutable((string) $request->string('ended_at')),
+            note: $request->filled('note') ? (string) $request->string('note') : null,
         ));
 
         return response()->json([

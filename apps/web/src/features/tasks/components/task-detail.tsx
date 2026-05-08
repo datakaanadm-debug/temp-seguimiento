@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { apiClient } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/providers/auth-provider'
 import { useTask, useTasks } from '../hooks/use-tasks'
 import { useChangeTaskState, useUpdateTask } from '../hooks/use-task-mutations'
 import { useRunningTimer, useStartTimer, useStopTimer } from '../hooks/use-timer'
@@ -25,7 +26,9 @@ import { listObjectives } from '@/features/okrs/api/okrs'
 import { TaskCommentsThread } from './task-comments-thread'
 import { TaskSubtasks } from './task-subtasks'
 import { TaskAttachmentsPanel } from './task-attachments-panel'
-import type { PaginatedResponse, Profile, Tag, TaskPriority, TaskState } from '@/types/api'
+import type {
+  MembershipRole, PaginatedResponse, Profile, Tag, TaskPriority, TaskState,
+} from '@/types/api'
 
 const STATE_TONE: Record<TaskState, 'neutral' | 'info' | 'accent' | 'warn' | 'ok' | 'danger'> = {
   BACKLOG: 'neutral',
@@ -40,6 +43,7 @@ const STATE_TONE: Record<TaskState, 'neutral' | 'info' | 'accent' | 'warn' | 'ok
 const PRIORITIES: TaskPriority[] = ['urgent', 'high', 'normal', 'low']
 
 export function TaskDetail({ taskId }: { taskId: string }) {
+  const { user } = useAuth()
   const { data: task, isLoading } = useTask(taskId)
   const update = useUpdateTask(taskId)
   const changeState = useChangeTaskState(taskId)
@@ -70,6 +74,16 @@ export function TaskDetail({ taskId }: { taskId: string }) {
   const actualH = task.actual_minutes / 60
   const estH = task.estimated_minutes ? task.estimated_minutes / 60 : 0
 
+  // Read-only mode: si el user no puede editar la tarea, mostramos los
+  // controles deshabilitados. El backend (TaskPolicy.update) rechaza igual,
+  // pero esto da feedback visual antes de hacer un POST que va a fallar.
+  // Reglas: admin/HR/team_lead siempre pueden; assignee también; el resto no.
+  const isStaffEditor =
+    user?.role === 'tenant_admin' ||
+    user?.role === 'hr' ||
+    user?.role === 'team_lead'
+  const canEdit = isStaffEditor || task.assignee?.id === user?.id
+
   const onChangeState = (state: TaskState) => {
     if (state === 'BLOCKED') {
       const r = prompt('¿Cuál es el bloqueo?', '')
@@ -97,6 +111,7 @@ export function TaskDetail({ taskId }: { taskId: string }) {
             onSave={(v) => update.mutate({ title: v })}
             placeholder="Título de la tarea"
             as="heading"
+            readOnly={!canEdit}
           />
         }
         sub={
@@ -175,6 +190,13 @@ export function TaskDetail({ taskId }: { taskId: string }) {
         </div>
       )}
 
+      {!canEdit && (
+        <div className="mb-4 rounded-md border border-paper-line bg-paper-surface p-3 text-[12.5px] text-ink-3">
+          <b className="text-ink-2">Modo lectura.</b> Esta tarea no te fue asignada.
+          Puedes ver detalles, comentarios y adjuntos, pero solo el responsable o un líder puede editarla.
+        </div>
+      )}
+
       <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 300px' }}>
         <div className="space-y-4">
           <PaperCard title="Descripción">
@@ -183,6 +205,7 @@ export function TaskDetail({ taskId }: { taskId: string }) {
               onSave={(v) => update.mutate({ description: v || null })}
               placeholder="Añade una descripción detallada…"
               multiline
+              readOnly={!canEdit}
             />
           </PaperCard>
 
@@ -200,12 +223,16 @@ export function TaskDetail({ taskId }: { taskId: string }) {
                 <AssigneePicker
                   value={task.assignee?.id ?? null}
                   onChange={(v) => update.mutate({ assignee_id: v })}
+                  kind="assignee"
+                  disabled={!canEdit}
                 />
               </FieldRow>
               <FieldRow label="Revisor">
                 <AssigneePicker
                   value={task.reviewer?.id ?? null}
                   onChange={(v) => update.mutate({ reviewer_id: v })}
+                  kind="reviewer"
+                  disabled={!canEdit}
                 />
               </FieldRow>
               <FieldRow label="Otros asignados">
@@ -330,18 +357,28 @@ function InlineText({
   placeholder,
   multiline = false,
   as = 'body',
+  readOnly = false,
 }: {
   value: string
   onSave: (v: string) => void
   placeholder: string
   multiline?: boolean
   as?: 'heading' | 'body'
+  /** Si true, el componente solo muestra el texto sin permitir entrar a edición. */
+  readOnly?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
 
   if (!editing) {
     if (as === 'heading') {
+      if (readOnly) {
+        return (
+          <span className="block w-full text-left">
+            {value || <span className="text-ink-3">{placeholder}</span>}
+          </span>
+        )
+      }
       return (
         <button
           type="button"
@@ -358,10 +395,14 @@ function InlineText({
     return (
       <div
         onClick={() => {
+          if (readOnly) return
           setDraft(value)
           setEditing(true)
         }}
-        className="cursor-text whitespace-pre-wrap font-serif text-[15px] leading-[1.65] text-ink hover:bg-paper-bg-2 rounded p-1 -m-1 transition"
+        className={cn(
+          'whitespace-pre-wrap font-serif text-[15px] leading-[1.65] text-ink rounded p-1 -m-1 transition',
+          readOnly ? 'cursor-default' : 'cursor-text hover:bg-paper-bg-2',
+        )}
       >
         {value || <span className="italic text-[13px] text-ink-3">{placeholder}</span>}
       </div>
@@ -460,12 +501,29 @@ function KeyResultPicker({
 }
 
 /* ─── Assignee / Reviewer picker ─── */
+const REVIEWER_ROLES: MembershipRole[] = [
+  'tenant_admin',
+  'hr',
+  'team_lead',
+  'mentor',
+  'supervisor',
+]
+
 function AssigneePicker({
   value,
   onChange,
+  kind = 'assignee',
+  disabled = false,
 }: {
   value: string | null
   onChange: (id: string | null) => void
+  /**
+   * `reviewer` filtra a roles con autoridad (no-intern / no-viewer). El backend
+   * valida lo mismo en CreateTaskRequest/UpdateTaskRequest, pero filtrar en el
+   * cliente evita una opción que va a 422 garantizado.
+   */
+  kind?: 'assignee' | 'reviewer'
+  disabled?: boolean
 }) {
   const { data } = useQuery({
     queryKey: ['profiles-task-picker'],
@@ -474,14 +532,19 @@ function AssigneePicker({
         searchParams: { per_page: 100 },
       }),
   })
-  const people = data?.data ?? []
+  const all = data?.data ?? []
+  const people =
+    kind === 'reviewer'
+      ? all.filter((p) => p.role && REVIEWER_ROLES.includes(p.role))
+      : all
   const current = people.find((p) => p.user_id === value)
 
   return (
     <select
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value || null)}
-      className="w-full rounded-md border border-paper-line bg-paper-surface px-2 py-1 text-[12.5px] text-ink outline-none focus:border-primary"
+      disabled={disabled}
+      className="w-full rounded-md border border-paper-line bg-paper-surface px-2 py-1 text-[12.5px] text-ink outline-none focus:border-primary disabled:opacity-60 disabled:cursor-not-allowed"
     >
       <option value="">— sin asignar —</option>
       {people.map((p) => (
