@@ -86,15 +86,18 @@ final class ProjectController extends Controller
 
     public function store(CreateProjectRequest $request): JsonResponse
     {
+        // `Request::string()` retorna Stringable; el command tipa string/?string,
+        // así que casteamos explícitamente para no chocar con el strict type del
+        // constructor (mismo bug que ya arreglamos en TimeEntryController/Reports).
         $project = $this->createHandler->handle(new CreateProject(
-            teamId: $request->string('team_id'),
-            name: $request->string('name'),
+            teamId: (string) $request->string('team_id'),
+            name: (string) $request->string('name'),
             slug: strtolower((string) $request->string('slug')),
             actor: $request->user(),
-            description: $request->string('description') ?: null,
-            color: $request->string('color') ?: null,
-            startDate: $request->string('start_date') ?: null,
-            endDate: $request->string('end_date') ?: null,
+            description: $request->filled('description') ? (string) $request->string('description') : null,
+            color: $request->filled('color') ? (string) $request->string('color') : null,
+            startDate: $request->filled('start_date') ? (string) $request->string('start_date') : null,
+            endDate: $request->filled('end_date') ? (string) $request->string('end_date') : null,
             withDefaultLists: (bool) $request->boolean('with_default_lists', true),
         ));
 

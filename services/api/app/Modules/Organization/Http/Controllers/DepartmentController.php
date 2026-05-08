@@ -23,11 +23,29 @@ final class DepartmentController extends Controller
     {
         $this->authorize('viewAny', Department::class);
 
+        // Eager-load profundo: department → areas → teams (con lead + count
+        // de members). Si solo cargáramos `areas`, la UI de /configuracion/equipo
+        // muestra "sin equipos" en todas las áreas porque `area.teams` viene
+        // vacío y el ternario gate (area.teams.length > 0) no entra al loop.
         $departments = Department::query()
-            ->with(['areas' => fn ($q) => $q->orderBy('position')])
+            ->with([
+                'areas' => fn ($q) => $q->orderBy('position'),
+                'areas.teams' => fn ($q) => $q->orderBy('name'),
+                'areas.teams.lead',
+            ])
+            ->withCount(['areas'])
             ->orderBy('position')
             ->orderBy('name')
             ->get();
+
+        // Hidratar member_count en cada team. `loadCount` recorre relaciones
+        // anidadas con notación de punto.
+        $departments->loadCount('areas');
+        foreach ($departments as $dep) {
+            foreach ($dep->areas as $area) {
+                $area->teams->loadCount('memberships');
+            }
+        }
 
         return response()->json([
             'data' => DepartmentResource::collection($departments),

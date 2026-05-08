@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperBadge, TonalAvatar } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listProjects } from '@/features/tasks/api/tasks'
+import { NewProjectDialog } from '@/features/tasks/components/new-project-dialog'
 import { Can } from '@/components/shared/can'
 import { useRequireRole } from '@/hooks/use-require-role'
 import { cn } from '@/lib/utils'
@@ -32,6 +33,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function ProyectosPage() {
   const allowed = useRequireRole(['tenant_admin', 'hr', 'team_lead', 'mentor', 'supervisor'])
+  const [newOpen, setNewOpen] = useState(false)
   const { data, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: () => listProjects({}),
@@ -58,9 +60,7 @@ export default function ProyectosPage() {
             <Can capability="create_projects">
               <button
                 type="button"
-                onClick={() =>
-                  toast.info('Crear proyecto llegará junto con el módulo de plantillas.')
-                }
+                onClick={() => setNewOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
               >
                 <Icon.Plus size={13} />
@@ -82,6 +82,16 @@ export default function ProyectosPage() {
           <p className="text-[13px] text-ink-3">
             Aún no hay proyectos. Crea el primero para organizar tareas por equipo.
           </p>
+          <Can capability="create_projects">
+            <button
+              type="button"
+              onClick={() => setNewOpen(true)}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+            >
+              <Icon.Plus size={13} />
+              Crear primer proyecto
+            </button>
+          </Can>
         </div>
       ) : (
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
@@ -134,6 +144,8 @@ export default function ProyectosPage() {
           })}
         </div>
       )}
+
+      <NewProjectDialog open={newOpen} onOpenChange={setNewOpen} />
     </div>
   )
 }

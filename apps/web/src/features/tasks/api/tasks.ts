@@ -77,6 +77,20 @@ export async function getProject(id: string): Promise<DataEnvelope<Project>> {
   return apiClient.get(`/api/v1/projects/${id}`)
 }
 
+export interface CreateProjectInput {
+  team_id: string
+  name: string
+  slug: string
+  description?: string | null
+  color?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  with_default_lists?: boolean
+}
+export async function createProject(input: CreateProjectInput): Promise<DataEnvelope<Project>> {
+  return apiClient.post('/api/v1/projects', input)
+}
+
 // ─── Lists (columnas Kanban) ───
 export async function listProjectLists(projectId: string): Promise<{ data: TaskList[] }> {
   return apiClient.get(`/api/v1/projects/${projectId}/lists`)
