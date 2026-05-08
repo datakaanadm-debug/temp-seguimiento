@@ -96,6 +96,14 @@ class AppServiceProvider extends ServiceProvider
             \App\Modules\AI\Infrastructure\Listeners\TriggerDailySummary::class,
         );
 
+        // People — recálculo automático de horas del programa.
+        // Cuando el practicante envía bitácora, sumamos sus hours_worked
+        // submitted al `intern_data.hours_completed` (era 100% manual).
+        Event::listen(
+            \App\Modules\Tracking\Domain\Events\DailyReportSubmitted::class,
+            \App\Modules\People\Application\Listeners\RecomputeInternHours::class,
+        );
+
         // Gamification — engine que mueve user_points y user_badges en respuesta
         // a la actividad real del workspace. Cualquier badge nueva debe
         // ENCHUFAR un listener aquí, o queda dormida.
