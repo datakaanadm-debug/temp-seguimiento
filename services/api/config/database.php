@@ -95,6 +95,13 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+            // Forzamos UTC en la sesión de Postgres para evitar el bug de
+            // doble conversión: si la session TZ es la del SO (ej. Mexico
+            // City) y Laravel envía `now()` en UTC sin offset, postgres lo
+            // interpreta como local y lo guarda 6h adelantado. Con UTC
+            // sesión, los `timestamptz` se interpretan/exportan como UTC
+            // y el frontend convierte a la TZ del usuario al renderizar.
+            'timezone' => '+00:00',
         ],
 
         'sqlsrv' => [
