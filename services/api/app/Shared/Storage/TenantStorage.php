@@ -44,10 +44,19 @@ final class TenantStorage
 
     /**
      * URL pre-firmada para DESCARGA (GET). TTL corto (15 min default).
+     *
+     * Devuelve `null` cuando el driver no soporta pre-signed URLs (típico
+     * disk `local` en dev). El caller debe caer a un endpoint backend
+     * que stream el archivo.
      */
-    public static function temporaryUrl(string $key, int $ttlSeconds = 900): string
+    public static function temporaryUrl(string $key, int $ttlSeconds = 900): ?string
     {
-        return Storage::disk(self::DISK)->temporaryUrl($key, now()->addSeconds($ttlSeconds));
+        try {
+            return Storage::disk(self::DISK)->temporaryUrl($key, now()->addSeconds($ttlSeconds));
+        } catch (\RuntimeException) {
+            // Local/in-memory drivers no implementan temporaryUrl.
+            return null;
+        }
     }
 
     /**

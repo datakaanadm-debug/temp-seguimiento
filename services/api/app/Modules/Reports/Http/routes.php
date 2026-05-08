@@ -19,3 +19,12 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.member'])->group(function (
     Route::get('/reports/{reportRun}/download', [ReportRunController::class, 'download'])
         ->name('reports.download');
 });
+
+// Stream del PDF: protegido por signed URL (sin tenant/auth middleware
+// porque al abrir desde una pestaña nueva no van cookies ni headers).
+// La URL firmada por el backend caduca en 15 min — equivalente al
+// pre-signed S3/R2 de producción.
+Route::middleware('signed')->group(function () {
+    Route::get('/reports/{reportRun}/file', [ReportRunController::class, 'file'])
+        ->name('reports.file');
+});
