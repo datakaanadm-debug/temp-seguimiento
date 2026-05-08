@@ -12,8 +12,12 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.member'])->group(function (
 
     // Report runs (generación async)
     Route::get('/reports', [ReportRunController::class, 'index'])->name('reports.index');
+    // throttle:max,decayMinutes — Laravel usa userId si está autenticado,
+    // sino IP. Subimos a 200/hora porque generar reportes durante onboarding
+    // (probar plantillas, regenerar tras cambios) supera el budget viejo de 60.
+    // Producción alta-carga puede bajarlo vía override en RouteServiceProvider.
     Route::post('/reports', [ReportRunController::class, 'store'])
-        ->middleware('throttle:60,60')     // 60/hora por IP
+        ->middleware('throttle:200,60')
         ->name('reports.store');
     Route::get('/reports/{reportRun}', [ReportRunController::class, 'show'])->name('reports.show');
     Route::get('/reports/{reportRun}/download', [ReportRunController::class, 'download'])

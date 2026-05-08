@@ -46,12 +46,19 @@ export default function ReportesPage() {
   const requestMutation = useRequestReport()
 
   const handleGenerate = async (template: ReportTemplate) => {
-    // El template university requiere subject + period — redirigimos al
-    // form dedicado en lugar de POSTear sin parámetros (failure garantizado).
+    // Templates que requieren elegir subject + período — redirigimos al
+    // form dedicado en vez de POSTear sin parámetros (failure garantizado
+    // o reporte vacío).
     if (template.kind === 'university') {
       window.location.href = '/reportes/universidad/solicitar'
       return
     }
+    if (template.kind === 'team') {
+      window.location.href = '/reportes/equipo/solicitar'
+      return
+    }
+    // Executive: no necesita subject. Generamos con período por defecto
+    // (últimos 90 días) — el job aplica el fallback en buildData().
     setGeneratingId(template.id)
     try {
       // Hook centralizado: maneja optimistic insert + invalidate +

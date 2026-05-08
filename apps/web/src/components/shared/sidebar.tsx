@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Icon, type IconName } from '@/components/ui/icon'
@@ -73,15 +74,13 @@ export function Sidebar() {
         collapsed ? 'w-[72px]' : 'w-[248px]',
       )}
     >
-      {/* Brand */}
+      {/* Brand: logo del tenant si lo subió en /configuracion/empresa,
+          sino fallback a la "s" de Senda. */}
       <div className="flex h-14 items-center gap-2.5 border-b border-paper-line-soft px-4">
-        <div
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink text-paper-surface font-serif italic"
-          style={{ fontSize: 15, lineHeight: 1 }}
-          aria-hidden
-        >
-          s
-        </div>
+        <BrandMark
+          logoUrl={(tenant?.theme as Record<string, unknown> | undefined)?.logo_url as string | undefined}
+          tenantName={tenant?.name ?? 'Senda'}
+        />
         {!collapsed && (
           <div className="min-w-0">
             <div className="truncate text-[13px] font-semibold text-ink">
@@ -183,5 +182,38 @@ export function Sidebar() {
         </Link>
       </div>
     </aside>
+  )
+}
+
+/**
+ * Logo del tenant en cuadro 28×28. Si `logoUrl` existe (admin lo subió en
+ * /configuracion/empresa) lo renderiza como `<img>` con object-contain.
+ * Si falla la carga (URL muerta) o no hay URL, fallback a la inicial
+ * del nombre del tenant en serif italic — el branding "s" de Senda.
+ */
+function BrandMark({ logoUrl, tenantName }: { logoUrl?: string; tenantName: string }) {
+  const [failed, setFailed] = useState(false)
+  const initial = (tenantName.trim()[0] ?? 'S').toLowerCase()
+
+  if (logoUrl && !failed) {
+    return (
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-paper-surface">
+        <img
+          src={logoUrl}
+          alt={tenantName}
+          className="h-full w-full object-contain"
+          onError={() => setFailed(true)}
+        />
+      </div>
+    )
+  }
+  return (
+    <div
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink text-paper-surface font-serif italic"
+      style={{ fontSize: 15, lineHeight: 1 }}
+      aria-hidden
+    >
+      {initial}
+    </div>
   )
 }

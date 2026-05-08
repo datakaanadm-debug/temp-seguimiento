@@ -66,11 +66,21 @@ final class UniversityReportBuilder
 
         $tenant = TenantContext::current();
 
+        // Inline el logo como data: URI para que dompdf no tenga que hacer
+        // un fetch HTTP (isRemoteEnabled=false por defecto). Leemos el archivo
+        // directo del storage usando logo_key y lo codificamos base64.
+        $theme = (array) ($tenant->theme ?? []);
+        if (!empty($theme['logo_key']) && \Illuminate\Support\Facades\Storage::exists((string) $theme['logo_key'])) {
+            $bytes = \Illuminate\Support\Facades\Storage::get((string) $theme['logo_key']);
+            $mime = (string) ($theme['logo_mime'] ?? 'image/png');
+            $theme['logo_url'] = 'data:' . $mime . ';base64,' . base64_encode($bytes);
+        }
+
         return [
             'tenant' => [
                 'id' => $tenant->id,
                 'name' => $tenant->name,
-                'theme' => $tenant->theme ?? [],
+                'theme' => $theme,
             ],
             'intern' => [
                 'id' => $user->id,

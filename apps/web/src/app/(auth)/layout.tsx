@@ -1,3 +1,10 @@
+/**
+ * Pre-login: el layout muestra branding de plataforma (Senda), no del tenant.
+ * Razón: en /login, /accept-invitation etc. todavía no hay sesión ni tenant
+ * resuelto y no existe un endpoint público `branding-by-slug` (los logos vía
+ * /api/v1/tenants/{id}/logo van por UUID, no por subdomain). Una vez logueado
+ * el sidebar sí muestra `tenant.theme.logo_url` con fallback a la inicial.
+ */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh grid place-items-center bg-muted/30 p-6">

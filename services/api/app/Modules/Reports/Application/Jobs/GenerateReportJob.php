@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Reports\Application\Jobs;
 
+use App\Modules\Reports\Application\Services\ExecutiveReportBuilder;
+use App\Modules\Reports\Application\Services\TeamReportBuilder;
 use App\Modules\Reports\Application\Services\UniversityReportBuilder;
 use App\Modules\Reports\Domain\Enums\ReportKind;
 use App\Modules\Reports\Domain\Enums\RunStatus;
@@ -40,9 +42,12 @@ final class GenerateReportJob implements ShouldQueue
         $this->onQueue('reports');
     }
 
-    public function handle(UniversityReportBuilder $uniBuilder): void
-    {
-        TenantContext::run($this->tenantId, function () use ($uniBuilder) {
+    public function handle(
+        UniversityReportBuilder $uniBuilder,
+        ExecutiveReportBuilder $execBuilder,
+        TeamReportBuilder $teamBuilder,
+    ): void {
+        TenantContext::run($this->tenantId, function () use ($uniBuilder, $execBuilder, $teamBuilder) {
             /** @var ReportRun $run */
             $run = ReportRun::query()->with('template')->findOrFail($this->runId);
 
@@ -52,7 +57,7 @@ final class GenerateReportJob implements ShouldQueue
 
             try {
                 $view = $this->resolveView($run);
-                $data = $this->buildData($run, $uniBuilder);
+                $data = $this->buildData($run, $uniBuilder, $execBuilder, $teamBuilder);
 
                 $storedKey = TenantStorage::path(
                     "reports/{$run->id}-" . Str::slug($run->template->name) . '.pdf'
@@ -98,8 +103,12 @@ final class GenerateReportJob implements ShouldQueue
     /**
      * Selecciona el builder según kind y arma el payload.
      */
-    private function buildData(ReportRun $run, UniversityReportBuilder $uniBuilder): array
-    {
+    private function buildData(
+        ReportRun $run,
+        UniversityReportBuilder $uniBuilder,
+        ExecutiveReportBuilder $execBuilder,
+        TeamReportBuilder $teamBuilder,
+    ): array {
         $kind = $run->template->kind;
         $periodStart = $run->period_start ?? now()->subMonths(3);
         $periodEnd = $run->period_end ?? now();
@@ -112,7 +121,23 @@ final class GenerateReportJob implements ShouldQueue
             );
         }
 
-        // Fallback mínimo: Executive/Team/Custom — en fase 2 se implementan builders específicos.
+        if ($kind === ReportKind::Executive) {
+            // Executive no requiere subject — agrega métricas a nivel tenant.
+            return $execBuilder->build(
+                periodStart: $periodStart,
+                periodEnd: $periodEnd,
+            );
+        }
+
+        if ($kind === ReportKind::Team && $run->subject_type === 'team' && $run->subject_id) {
+            return $teamBuilder->build(
+                teamId: $run->subject_id,
+                periodStart: $periodStart,
+                periodEnd: $periodEnd,
+            );
+        }
+
+        // Fallback mínimo: Custom/Intern todavía sin builder dedicado.
         return [
             'tenant' => ['id' => $this->tenantId, 'name' => TenantContext::current()->name],
             'kind' => $kind->value,
