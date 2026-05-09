@@ -2,14 +2,14 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-04-22
-- **Autor:** Arquitectura Interna
+- **Autor:** Arquitectura Senda
 - **Contexto de decisión:** FASE 0 / transversal
 
 ---
 
 ## Contexto
 
-Interna es multi-tenant desde el día 1. La elección del modelo de aislamiento es irreversible en la práctica (migrar de shared a dedicated database implica rewrites sustanciales). Tres opciones canónicas:
+Senda es multi-tenant desde el día 1. La elección del modelo de aislamiento es irreversible en la práctica (migrar de shared a dedicated database implica rewrites sustanciales). Tres opciones canónicas:
 
 1. **Database-per-tenant** — máximo aislamiento, operativamente costoso (migraciones, backups, pools de conexión por tenant).
 2. **Schema-per-tenant** — aislamiento razonable, pero ORM (Eloquent) no lo soporta idiomáticamente; hay que cambiar `search_path` en cada request.

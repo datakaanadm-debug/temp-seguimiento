@@ -8,7 +8,7 @@
 
 ## 1. Propósito
 
-Interna es un SaaS multi-tenant para la gestión integral de programas de practicantes. Este documento describe **cómo está construido el sistema**: capas, dominios, responsabilidades y el flujo end-to-end de un request.
+Senda es un SaaS multi-tenant para la gestión integral de programas de practicantes. Este documento describe **cómo está construido el sistema**: capas, dominios, responsabilidades y el flujo end-to-end de un request.
 
 El producto tiene 12 dominios totales. El **MVP cubre 9** (Identity, Organization, People, Tasks, Tracking, Notifications, Dashboards, Reports, AI básica). Los 3 restantes (Mentorship, Automation avanzado, OKRs) se dejan para fase 2. Todo el diseño aquí está pensado para que añadir esos dominios después **no requiera re-arquitectura**, solo nuevos módulos.
 

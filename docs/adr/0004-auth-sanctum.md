@@ -2,14 +2,14 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-04-22
-- **Autor:** Arquitectura Interna
+- **Autor:** Arquitectura Senda
 - **Contexto de decisión:** FASE 0
 
 ---
 
 ## Contexto
 
-Interna tiene múltiples canales de clientes:
+Senda tiene múltiples canales de clientes:
 - Web browser (Next.js server + client components, mismo dominio raíz que API).
 - Móvil nativo (fase 2, Expo).
 - Integraciones server-to-server (API pública, fase 2).

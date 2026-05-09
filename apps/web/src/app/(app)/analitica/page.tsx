@@ -97,18 +97,19 @@ export default function AnaliticaPage() {
         sub={`${interns.length} practicantes · ${tasks.length} tareas · últimos 30 días`}
         right={
           <>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
-              <Icon.Cal size={13} />
-              Últimos 30 días
-            </button>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
-              <Icon.Filter size={12} />
-              Equipo: todos
-            </button>
-            <button className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2">
+            {/*
+              Filtros "Últimos 30 días" y "Equipo: todos" se removieron porque
+              eran decorativos (no había state ni query). Si se necesitan,
+              wirear con useQueryState como en /tareas.
+            */}
+            <Link
+              href="/reportes"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+              title="Genera un reporte ejecutivo, de equipo, universitario o de practicante"
+            >
               <Icon.Attach size={12} />
               Exportar reporte
-            </button>
+            </Link>
           </>
         }
       />

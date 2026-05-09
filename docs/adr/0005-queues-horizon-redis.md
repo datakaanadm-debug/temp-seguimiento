@@ -2,14 +2,14 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-04-22
-- **Autor:** Arquitectura Interna
+- **Autor:** Arquitectura Senda
 - **Contexto de decisión:** FASE 0
 
 ---
 
 ## Contexto
 
-Interna tiene muchas operaciones asíncronas: envío de emails, broadcasting, generación de PDFs, llamadas a IA, indexado de búsqueda, anonimización programada. Sin colas, la experiencia de usuario sufre (requests lentos) y un tenant podría bloquear a los demás (IA flood, reportes masivos).
+Senda tiene muchas operaciones asíncronas: envío de emails, broadcasting, generación de PDFs, llamadas a IA, indexado de búsqueda, anonimización programada. Sin colas, la experiencia de usuario sufre (requests lentos) y un tenant podría bloquear a los demás (IA flood, reportes masivos).
 
 Requisitos:
 - Retry con backoff exponencial.

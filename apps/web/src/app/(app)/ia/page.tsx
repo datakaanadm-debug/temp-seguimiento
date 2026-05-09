@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
 import {
   SectionTitle, PaperCard, PaperBadge, TonalAvatar,
@@ -9,6 +10,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { apiClient } from '@/lib/api-client'
 import { ApiError } from '@/lib/api-client'
+import { resolveInsight } from '@/features/ai/api/ai'
+import { useUiStore } from '@/lib/stores/ui-store'
 import { cn } from '@/lib/utils'
 
 type Insight = {
@@ -45,6 +48,23 @@ const SEVERITY_COLOR = {
 }
 
 export default function IaPage() {
+  const qc = useQueryClient()
+  const setAiCoachOpen = useUiStore((s) => s.setAiCoachOpen)
+
+  const resolve = useMutation({
+    mutationFn: (id: string) => resolveInsight(id),
+    onSuccess: () => {
+      toast.success('Alerta marcada como resuelta')
+      // Invalida con refetchType:'all' para refrescar también si se navega
+      // de regreso a esta vista; el endpoint POST /resolve cambia status,
+      // entonces el insight desaparece de "abiertas".
+      qc.invalidateQueries({ queryKey: ['ai-insights-all'], refetchType: 'all' })
+    },
+    onError: (err: any) => {
+      toast.error(err?.message ?? 'No se pudo resolver la alerta')
+    },
+  })
+
   const { data: insightsData, isLoading: insightsLoading } = useQuery({
     queryKey: ['ai-insights-all'],
     queryFn: async () => {
@@ -87,11 +107,16 @@ export default function IaPage() {
         sub={`${open.length} alertas abiertas · ${resolved} resueltas · ${summaries.length} resúmenes generados`}
         right={
           <>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
-              <Icon.Settings size={12} />
-              Ajustes IA
-            </button>
-            <button className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2">
+            {/*
+              Removí "Ajustes IA" porque no existe pantalla de config IA todavía.
+              Si en el futuro queremos exponer toggles (modelo, temperature,
+              throttles por tenant), agregar /configuracion/ia y reactivar.
+            */}
+            <button
+              type="button"
+              onClick={() => setAiCoachOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+            >
               <Icon.Sparkles size={12} />
               Abrir coach
             </button>
@@ -205,9 +230,11 @@ export default function IaPage() {
                   </div>
                   <button
                     type="button"
-                    className="rounded-md border border-paper-line bg-paper-surface px-2 py-1 text-[11px] font-medium text-ink-2 hover:border-paper-line-soft"
+                    onClick={() => resolve.mutate(ins.id)}
+                    disabled={resolve.isPending && resolve.variables === ins.id}
+                    className="rounded-md border border-paper-line bg-paper-surface px-2 py-1 text-[11px] font-medium text-ink-2 hover:border-paper-line-soft disabled:opacity-50"
                   >
-                    Resolver
+                    {resolve.isPending && resolve.variables === ins.id ? 'Resolviendo…' : 'Resolver'}
                   </button>
                 </div>
               ))}

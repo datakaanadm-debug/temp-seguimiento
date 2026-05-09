@@ -1,16 +1,19 @@
 'use client'
 
+import { useState } from 'react'
 import { Icon } from '@/components/ui/icon'
 import {
   SectionTitle, PaperCard, TonalAvatar,
 } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useMyProfile } from '@/features/people/hooks/use-people'
+import { EditProfileDialog } from '@/features/people/components/edit-profile-dialog'
 import { useCurrentUser } from '@/providers/auth-provider'
 
 export default function PerfilPage() {
   const user = useCurrentUser()
   const { data: profile, isLoading } = useMyProfile()
+  const [editOpen, setEditOpen] = useState(false)
 
   return (
     <div>
@@ -21,13 +24,19 @@ export default function PerfilPage() {
         right={
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+            onClick={() => setEditOpen(true)}
+            disabled={!profile}
+            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2 disabled:opacity-50"
           >
             <Icon.Settings size={13} />
             Editar
           </button>
         }
       />
+
+      {profile && (
+        <EditProfileDialog open={editOpen} onOpenChange={setEditOpen} profile={profile} />
+      )}
 
       {isLoading ? (
         <Skeleton className="h-48" />
@@ -69,8 +78,9 @@ export default function PerfilPage() {
           </PaperCard>
 
           <div className="mt-4 rounded-md border border-dashed border-paper-line bg-paper-surface p-4 text-[12px] leading-[1.5] text-ink-3">
-            La edición avanzada de perfil (skills, social links, datos académicos) estará
-            disponible en la próxima iteración.
+            <b className="text-ink-2">Tip:</b> usa el botón <i>Editar</i> arriba para
+            actualizar tu bio, skills, datos académicos y horas de convenio. Los cambios
+            son visibles a tu equipo y mentor inmediatamente.
           </div>
         </>
       )}

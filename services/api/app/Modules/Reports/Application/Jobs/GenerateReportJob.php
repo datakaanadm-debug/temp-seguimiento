@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Reports\Application\Jobs;
 
 use App\Modules\Reports\Application\Services\ExecutiveReportBuilder;
+use App\Modules\Reports\Application\Services\InternReportBuilder;
 use App\Modules\Reports\Application\Services\TeamReportBuilder;
 use App\Modules\Reports\Application\Services\UniversityReportBuilder;
 use App\Modules\Reports\Domain\Enums\ReportKind;
@@ -46,8 +47,9 @@ final class GenerateReportJob implements ShouldQueue
         UniversityReportBuilder $uniBuilder,
         ExecutiveReportBuilder $execBuilder,
         TeamReportBuilder $teamBuilder,
+        InternReportBuilder $internBuilder,
     ): void {
-        TenantContext::run($this->tenantId, function () use ($uniBuilder, $execBuilder, $teamBuilder) {
+        TenantContext::run($this->tenantId, function () use ($uniBuilder, $execBuilder, $teamBuilder, $internBuilder) {
             /** @var ReportRun $run */
             $run = ReportRun::query()->with('template')->findOrFail($this->runId);
 
@@ -57,7 +59,7 @@ final class GenerateReportJob implements ShouldQueue
 
             try {
                 $view = $this->resolveView($run);
-                $data = $this->buildData($run, $uniBuilder, $execBuilder, $teamBuilder);
+                $data = $this->buildData($run, $uniBuilder, $execBuilder, $teamBuilder, $internBuilder);
 
                 $storedKey = TenantStorage::path(
                     "reports/{$run->id}-" . Str::slug($run->template->name) . '.pdf'
@@ -108,6 +110,7 @@ final class GenerateReportJob implements ShouldQueue
         UniversityReportBuilder $uniBuilder,
         ExecutiveReportBuilder $execBuilder,
         TeamReportBuilder $teamBuilder,
+        InternReportBuilder $internBuilder,
     ): array {
         $kind = $run->template->kind;
         $periodStart = $run->period_start ?? now()->subMonths(3);
@@ -137,7 +140,15 @@ final class GenerateReportJob implements ShouldQueue
             );
         }
 
-        // Fallback mínimo: Custom/Intern todavía sin builder dedicado.
+        if ($kind === ReportKind::Intern && $run->subject_type === 'user' && $run->subject_id) {
+            return $internBuilder->build(
+                internUserId: $run->subject_id,
+                periodStart: $periodStart,
+                periodEnd: $periodEnd,
+            );
+        }
+
+        // Fallback mínimo: Custom todavía sin builder dedicado.
         return [
             'tenant' => ['id' => $this->tenantId, 'name' => TenantContext::current()->name],
             'kind' => $kind->value,

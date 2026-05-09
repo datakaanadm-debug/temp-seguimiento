@@ -1,16 +1,20 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperCard, PaperBadge } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Can } from '@/components/shared/can'
 import { getProject, listTasks, listProjectLists } from '@/features/tasks/api/tasks'
 import { KanbanBoard } from '@/features/tasks/components/kanban-board'
+import { EditProjectDialog } from '@/features/tasks/components/edit-project-dialog'
 
 export default function ProyectoDetallePage() {
   const { id } = useParams<{ id: string }>()
+  const [editOpen, setEditOpen] = useState(false)
 
   const { data: projectData, isLoading: projectLoading } = useQuery({
     queryKey: ['project', id],
@@ -65,10 +69,16 @@ export default function ProyectoDetallePage() {
         sub={project.description ?? `${tasks.length} tareas · ${progress}% completado`}
         right={
           <>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
-              <Icon.Settings size={13} />
-              Ajustes
-            </button>
+            <Can capability="create_projects">
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft"
+              >
+                <Icon.Settings size={13} />
+                Ajustes
+              </button>
+            </Can>
             <Link
               href={`/tareas/nueva?project_id=${project.id}`}
               className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
@@ -79,6 +89,8 @@ export default function ProyectoDetallePage() {
           </>
         }
       />
+
+      <EditProjectDialog open={editOpen} onOpenChange={setEditOpen} project={project} />
 
       {/* Overview cards */}
       <div className="mb-4 grid grid-cols-4 gap-3">

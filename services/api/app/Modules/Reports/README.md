@@ -116,7 +116,7 @@ Data desde `UniversityReportBuilder` — junta Profile, InternData, KpiComputati
 
 - [x] Executive builder dedicado (`ExecutiveReportBuilder` + `reports.executive`)
 - [x] Team builder dedicado (`TeamReportBuilder` + `reports.team`, requiere `subject_type=team`)
-- [ ] Intern builder dedicado (kind=intern todavía cae en fallback genérico)
+- [x] Intern builder dedicado (`InternReportBuilder` + `reports.intern`, requiere `subject_type=user`)
 - [ ] CSV/XLSX exports con streaming (`ExportUsersJob`, `ExportTasksJob`)
 - [ ] Cron `ExpireOldReportsJob` → purga R2 + status=expired
 - [ ] Email attachment opcional (enviar PDF directo al tutor académico)

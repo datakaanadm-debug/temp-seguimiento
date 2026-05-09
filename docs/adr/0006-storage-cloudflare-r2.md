@@ -2,14 +2,14 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-04-22
-- **Autor:** Arquitectura Interna
+- **Autor:** Arquitectura Senda
 - **Contexto de decisión:** FASE 0
 
 ---
 
 ## Contexto
 
-Interna almacena:
+Senda almacena:
 - Adjuntos de tareas (imágenes, PDFs, docs Office) — hasta 50MB por tarea.
 - Avatares de usuarios.
 - Reportes PDF generados (universidad, ejecutivos).

@@ -57,6 +57,10 @@ export default function ReportesPage() {
       window.location.href = '/reportes/equipo/solicitar'
       return
     }
+    if (template.kind === 'intern') {
+      window.location.href = '/reportes/practicante/solicitar'
+      return
+    }
     // Executive: no necesita subject. Generamos con período por defecto
     // (últimos 90 días) — el job aplica el fallback en buildData().
     setGeneratingId(template.id)

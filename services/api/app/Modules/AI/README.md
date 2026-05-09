@@ -148,7 +148,7 @@ Los tests NO pegan a la API real — `$this->app->instance(LlmClient::class, $fa
 
 - [ ] **Embeddings con pgvector**: `VectorizeContent` job que genera embeddings de tasks/reports y los guarda en `embeddings`. RAG en insights.
 - [ ] **Voice transcription** para reporte diario por voz (Whisper API).
-- [ ] **Streaming responses** para el chat estilo "Interna Assistant" (fase 2 chat feature).
+- [ ] **Streaming responses** para el chat estilo "Senda Assistant" (fase 2 chat feature).
 - [ ] **Fine-tuning** con datos del tenant (opt-in, enterprise).
 - [ ] **Automation engine** que dispara detección periódica (cron por tenant).
 - [ ] **Weekly summaries** con digest multi-usuario.

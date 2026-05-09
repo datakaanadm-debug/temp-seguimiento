@@ -91,6 +91,18 @@ export async function createProject(input: CreateProjectInput): Promise<DataEnve
   return apiClient.post('/api/v1/projects', input)
 }
 
+export interface UpdateProjectInput {
+  name?: string
+  description?: string | null
+  status?: 'active' | 'paused' | 'completed' | 'archived'
+  color?: string | null
+  start_date?: string | null
+  end_date?: string | null
+}
+export async function updateProject(id: string, input: UpdateProjectInput): Promise<DataEnvelope<Project>> {
+  return apiClient.patch(`/api/v1/projects/${id}`, input)
+}
+
 // ─── Lists (columnas Kanban) ───
 export async function listProjectLists(projectId: string): Promise<{ data: TaskList[] }> {
   return apiClient.get(`/api/v1/projects/${projectId}/lists`)

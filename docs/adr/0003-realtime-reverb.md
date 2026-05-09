@@ -2,14 +2,14 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-04-22
-- **Autor:** Arquitectura Interna
+- **Autor:** Arquitectura Senda
 - **Contexto de decisión:** FASE 0
 
 ---
 
 ## Contexto
 
-El producto Interna depende fuertemente de realtime para la experiencia estilo Linear/Notion: Kanban colaborativo, comentarios instantáneos, notificaciones en vivo, presencia. Sin embargo, **se descartó CRDT (Yjs)** en MVP — optimistic updates y "última escritura gana" son suficientes (decisión del usuario en FASE 0).
+El producto Senda depende fuertemente de realtime para la experiencia estilo Linear/Notion: Kanban colaborativo, comentarios instantáneos, notificaciones en vivo, presencia. Sin embargo, **se descartó CRDT (Yjs)** en MVP — optimistic updates y "última escritura gana" son suficientes (decisión del usuario en FASE 0).
 
 Opciones para el servidor WebSocket:
 

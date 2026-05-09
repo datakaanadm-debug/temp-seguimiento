@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
 import { PaperBadge } from '@/components/ui/primitives'
+import { useUiStore } from '@/lib/stores/ui-store'
 import { cn } from '@/lib/utils'
 import { sendChatMessage, type ChatMessage } from '@/features/ai/api/ai'
 
@@ -37,7 +38,10 @@ const INITIAL_MESSAGES: Message[] = [
  */
 export function AiCoach() {
   const pathname = usePathname()
-  const [open, setOpen] = useState(false)
+  // Estado en zustand para que cualquier CTA externo (ej. /ia "Abrir coach")
+  // pueda dispararlo sin pasarse refs ni eventos.
+  const open = useUiStore((s) => s.aiCoachOpen)
+  const setOpen = useUiStore((s) => s.setAiCoachOpen)
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES)
   const [input, setInput] = useState('')
   const [thinking, setThinking] = useState(false)

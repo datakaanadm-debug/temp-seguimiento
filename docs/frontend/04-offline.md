@@ -76,8 +76,8 @@ Registro en `app/layout.tsx` (fase 2 cuando estabilicemos el shell).
 ```json
 // public/manifest.webmanifest
 {
-  "name": "Interna",
-  "short_name": "Interna",
+  "name": "Senda",
+  "short_name": "Senda",
   "description": "Gestión de practicantes",
   "start_url": "/",
   "display": "standalone",

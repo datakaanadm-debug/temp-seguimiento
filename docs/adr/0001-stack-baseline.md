@@ -2,14 +2,14 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-04-22
-- **Autor:** Arquitectura Interna
+- **Autor:** Arquitectura Senda
 - **Contexto de decisión:** FASE 0
 
 ---
 
 ## Contexto
 
-Interna es un SaaS multi-tenant enterprise con 9 dominios MVP y 3 dominios diferidos. Equipo: 1 dev fullstack. Target: LATAM con escalado a US. Budget inicial: low-hundreds USD/mes. Timeline MVP realista: 14-18 semanas.
+Senda es un SaaS multi-tenant enterprise con 9 dominios MVP y 3 dominios diferidos. Equipo: 1 dev fullstack. Target: LATAM con escalado a US. Budget inicial: low-hundreds USD/mes. Timeline MVP realista: 14-18 semanas.
 
 Las decisiones de stack afectan directamente:
 - Velocidad de desarrollo (ecosistemas maduros vs. bleeding edge).

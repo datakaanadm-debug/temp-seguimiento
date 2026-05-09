@@ -77,6 +77,21 @@ class ReportTemplateSeeder extends Seeder
                     'output_format' => 'pdf',
                 ],
             ],
+            [
+                'kind' => 'intern',
+                'name' => 'Reporte de Practicante',
+                'layout' => 'default',
+                'config' => [
+                    'description' => 'Detalle interno operativo del practicante: KPIs, bitácoras, breakdown por proyecto, mentores activos. Distinto del Reporte de Universidad — este es para uso interno de RRHH/mentor, no se entrega al tutor académico.',
+                    'parameters_schema' => [
+                        'subject_user_id' => ['type' => 'uuid', 'required' => true, 'label' => 'Practicante'],
+                        'period_start' => ['type' => 'date', 'required' => true, 'label' => 'Periodo desde'],
+                        'period_end' => ['type' => 'date', 'required' => true, 'label' => 'Periodo hasta'],
+                    ],
+                    'sections' => ['kpis', 'daily_reports', 'projects', 'tasks', 'mentors'],
+                    'output_format' => 'pdf',
+                ],
+            ],
         ];
 
         $created = 0;
