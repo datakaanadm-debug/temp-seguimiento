@@ -61,7 +61,9 @@ final class ProjectController extends Controller
             });
         }
 
-        $projects = $query->paginate(20);
+        // Respeta ?per_page (antes hardcoded a 20).
+        $perPage = max(1, min(100, (int) $request->integer('per_page', 20)));
+        $projects = $query->paginate($perPage);
 
         return response()->json([
             'data' => ProjectResource::collection($projects),

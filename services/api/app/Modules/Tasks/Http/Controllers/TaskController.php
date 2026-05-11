@@ -37,7 +37,9 @@ final class TaskController extends Controller
         $this->authorize('viewAny', Task::class);
 
         $query = Task::query()
-            ->with(['assignee', 'reviewer', 'tags'])
+            // Eager-load collaborators evita N+1 en TaskResource::resolveCollaborators
+            // (antes: 1 query por Task × 100 tasks = 100 queries extra en /tareas).
+            ->with(['assignee', 'reviewer', 'tags', 'collaborators'])
             ->withCount(['subtasks', 'comments', 'attachments']);
 
         if ($projectId = $request->query('project_id')) {
@@ -106,7 +108,7 @@ final class TaskController extends Controller
     public function show(Task $task): JsonResponse
     {
         $this->authorize('view', $task);
-        $task->load(['assignee', 'reviewer', 'tags', 'list', 'project'])
+        $task->load(['assignee', 'reviewer', 'tags', 'list', 'project', 'collaborators'])
             ->loadCount(['subtasks', 'comments', 'attachments']);
 
         return response()->json([
@@ -135,7 +137,7 @@ final class TaskController extends Controller
         ));
 
         return response()->json([
-            'data' => TaskResource::make($task->fresh(['assignee', 'reviewer', 'tags']))->resolve(),
+            'data' => TaskResource::make($task->fresh(['assignee', 'reviewer', 'tags', 'collaborators']))->resolve(),
         ], 201);
     }
 
@@ -150,7 +152,7 @@ final class TaskController extends Controller
         ));
 
         return response()->json([
-            'data' => TaskResource::make($updated->fresh(['assignee', 'reviewer', 'tags']))->resolve(),
+            'data' => TaskResource::make($updated->fresh(['assignee', 'reviewer', 'tags', 'collaborators']))->resolve(),
         ]);
     }
 

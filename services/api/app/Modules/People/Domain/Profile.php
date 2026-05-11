@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\People\Domain;
 
+use App\Modules\Identity\Domain\Membership;
 use App\Modules\Identity\Domain\User;
 use App\Modules\People\Domain\Enums\ProfileKind;
 use App\Shared\Concerns\BelongsToTenant;
@@ -77,6 +78,21 @@ class Profile extends BaseModel
     public function mentorData(): HasOne
     {
         return $this->hasOne(MentorData::class);
+    }
+
+    /**
+     * Membership activa del user en este tenant. Se eager-loadea desde
+     * ProfileController para evitar el N+1 en ProfileResource (antes hacía
+     * un `DB::table('memberships')->...->first()` por cada profile listado).
+     *
+     * El join es `profile.user_id + tenant_id → memberships`. Como Profile
+     * ya tiene `tenant_id` por BelongsToTenant, el constraint funciona.
+     */
+    public function activeMembership(): HasOne
+    {
+        return $this->hasOne(Membership::class, 'user_id', 'user_id')
+            ->whereColumn('memberships.tenant_id', 'profiles.tenant_id')
+            ->where('memberships.status', 'active');
     }
 
     public function isIntern(): bool

@@ -43,7 +43,9 @@ final class MentorAssignmentController extends Controller
             $query->where('intern_user_id', $intern);
         }
 
-        $items = $query->orderByDesc('started_at')->paginate(20);
+        // Respeta ?per_page (antes hardcoded a 20).
+        $perPage = max(1, min(100, (int) $request->integer('per_page', 20)));
+        $items = $query->orderByDesc('started_at')->paginate($perPage);
 
         return response()->json([
             'data' => MentorAssignmentResource::collection($items),

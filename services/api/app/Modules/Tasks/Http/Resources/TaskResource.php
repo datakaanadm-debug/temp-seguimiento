@@ -49,18 +49,38 @@ final class TaskResource extends JsonResource
             'comment_count' => $this->whenCounted('comments'),
             'attachment_count' => $this->whenCounted('attachments'),
             'tags' => TagResource::collection($this->whenLoaded('tags')),
-            'collaborators' => $this->collaboratorsList(),
+            // Si el caller eager-loadeó `collaborators` se usa eso (cero queries
+            // adicionales). Si no, fallback a la query manual — solo se debe
+            // tocar este path en endpoints que no cargan la relación (ej. detalle).
+            // Lista N+1 fix: en TaskController::index() ahora `with('collaborators')`.
+            'collaborators' => $this->resolveCollaborators(),
             'created_at' => $this->created_at->toIso8601String(),
             'updated_at' => $this->updated_at->toIso8601String(),
         ];
     }
 
     /**
-     * Carga colaboradores (task_assignees con role='collaborator') vía join directo.
-     * Para listas grandes considera eager loading dedicado.
+     * Devuelve los colaboradores en formato plano. Si la relación está eager-
+     * loadeada (via `with('collaborators')` en el controller), no hace queries
+     * adicionales. Como fallback (controllers que no la cargan) ejecuta el join
+     * — esto es para preservar compatibilidad mientras se migran todos los
+     * call-sites a eager loading.
+     *
+     * @return array<int, array<string, mixed>>
      */
-    private function collaboratorsList(): array
+    private function resolveCollaborators(): array
     {
+        if ($this->relationLoaded('collaborators')) {
+            return $this->collaborators->map(fn ($u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'avatar_url' => $u->avatar_url,
+                'assigned_at' => $u->pivot->assigned_at,
+            ])->all();
+        }
+
+        // Fallback (slow path) — log para detectar call-sites que falta migrar.
         $rows = \DB::table('task_assignees as ta')
             ->join('users as u', 'u.id', '=', 'ta.user_id')
             ->where('ta.task_id', $this->id)

@@ -34,7 +34,9 @@ final class ProfileController extends Controller
     {
         $this->authorize('viewAny', Profile::class);
 
-        $query = Profile::query()->with(['user', 'internData', 'mentorData']);
+        // Eager-load `activeMembership` evita N+1 en ProfileResource — antes
+        // hacía una query manual por cada profile para resolver el rol.
+        $query = Profile::query()->with(['user', 'internData', 'mentorData', 'activeMembership']);
 
         if ($kind = $request->query('kind')) {
             $query->where('kind', $kind);
@@ -58,7 +60,10 @@ final class ProfileController extends Controller
             });
         }
 
-        $profiles = $query->orderBy('created_at', 'desc')->paginate(20);
+        // Respeta ?per_page del cliente (antes se ignoraba y siempre devolvía 20,
+        // lo cual truncaba los pickers de assignee que piden per_page=100).
+        $perPage = max(1, min(200, (int) $request->integer('per_page', 20)));
+        $profiles = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json([
             'data' => ProfileResource::collection($profiles),
@@ -77,7 +82,7 @@ final class ProfileController extends Controller
     public function show(Profile $profile): JsonResponse
     {
         $this->authorize('view', $profile);
-        $profile->load(['user', 'internData', 'mentorData']);
+        $profile->load(['user', 'internData', 'mentorData', 'activeMembership']);
 
         return response()->json([
             'data' => ProfileResource::make($profile)->resolve(),
