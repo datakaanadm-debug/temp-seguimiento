@@ -1,11 +1,13 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { useQueryState, parseAsBoolean, parseAsString } from 'nuqs'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperBadge, TonalAvatar } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEvaluations } from '@/features/performance/hooks/use-evaluations'
+import { NewEvaluationDialog } from '@/features/performance/components/new-evaluation-dialog'
 import { Can } from '@/components/shared/can'
 import { cn } from '@/lib/utils'
 import type { EvaluationStatus } from '@/types/api'
@@ -35,6 +37,17 @@ const FILTERS: EvaluationStatus[] = ['SCHEDULED', 'IN_PROGRESS', 'SUBMITTED', 'A
 export default function EvaluacionesPage() {
   const [mine, setMine] = useQueryState('mine', parseAsBoolean.withDefault(false))
   const [status, setStatus] = useQueryState('status', parseAsString)
+  const [newQuery, setNewQuery] = useQueryState('new', parseAsBoolean)
+  const [newOpen, setNewOpen] = useState(false)
+
+  // Si el user entra con ?new=true (link viejo o desde tour), abrir el dialog.
+  // Luego limpiamos el query param para que el back-button no re-abra.
+  useEffect(() => {
+    if (newQuery) {
+      setNewOpen(true)
+      setNewQuery(null)
+    }
+  }, [newQuery, setNewQuery])
 
   const { data, isLoading } = useEvaluations({
     mine,
@@ -69,13 +82,14 @@ export default function EvaluacionesPage() {
               {mine ? 'Sólo mías' : 'Todas'}
             </button>
             <Can capability="create_evaluations">
-              <Link
-                href="/evaluaciones?new=true"
+              <button
+                type="button"
+                onClick={() => setNewOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
               >
                 <Icon.Plus size={13} />
                 Nueva evaluación
-              </Link>
+              </button>
             </Can>
           </>
         }
@@ -171,6 +185,8 @@ export default function EvaluacionesPage() {
           ))}
         </div>
       )}
+
+      <NewEvaluationDialog open={newOpen} onOpenChange={setNewOpen} />
     </div>
   )
 }
