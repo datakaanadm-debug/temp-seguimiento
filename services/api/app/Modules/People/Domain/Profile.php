@@ -82,16 +82,24 @@ class Profile extends BaseModel
 
     /**
      * Membership activa del user en este tenant. Se eager-loadea desde
-     * ProfileController para evitar el N+1 en ProfileResource (antes hacía
-     * un `DB::table('memberships')->...->first()` por cada profile listado).
+     * ProfileController para evitar el N+1 en ProfileResource.
      *
-     * El join es `profile.user_id + tenant_id → memberships`. Como Profile
-     * ya tiene `tenant_id` por BelongsToTenant, el constraint funciona.
+     * Importante: NO ponemos `whereColumn('memberships.tenant_id', 'profiles.tenant_id')`
+     * aquí. Cuando Eloquent hace eager-load genera un `SELECT * FROM memberships
+     * WHERE user_id IN (...)` SIN incluir profiles en el FROM, y el whereColumn
+     * referencia a una tabla que no existe en esa query → SQLSTATE 42P01.
+     *
+     * El scope por tenant ya está garantizado por dos caminos independientes:
+     *   1. `BelongsToTenant` en Membership aplica un global scope que filtra
+     *      por TenantContext::currentId().
+     *   2. Las RLS policies de Postgres en `memberships` filtran por
+     *      `app.tenant_id` que el middleware seteo en la sesión.
+     *
+     * Por eso aquí solo necesitamos filtrar por status='active'.
      */
     public function activeMembership(): HasOne
     {
         return $this->hasOne(Membership::class, 'user_id', 'user_id')
-            ->whereColumn('memberships.tenant_id', 'profiles.tenant_id')
             ->where('memberships.status', 'active');
     }
 
