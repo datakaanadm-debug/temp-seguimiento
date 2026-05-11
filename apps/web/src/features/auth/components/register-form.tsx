@@ -51,20 +51,28 @@ export function RegisterForm() {
   }
 
   if (submitted) {
+    // El backend hoy NO envía email de verificación — el admin queda activo
+    // inmediatamente. Antes este estado decía "Revisa tu correo · enviamos
+    // un link de verificación" que mentía y dejaba al user refrescando su
+    // inbox para siempre. Honesto: confirmamos creación y mandamos a login.
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Revisa tu correo</CardTitle>
+          <CardTitle>¡Empresa creada!</CardTitle>
           <CardDescription>
-            Enviamos un link de verificación a <strong>{form.getValues('admin_email')}</strong>.
+            Tu workspace <strong>{form.getValues('slug')}</strong> está listo.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Una vez verificado, podrás acceder a <strong>{form.getValues('slug')}.interna.app</strong>.
+          <p className="text-sm text-muted-foreground mb-4">
+            Inicia sesión con <strong>{form.getValues('admin_email')}</strong> para
+            empezar a invitar a tu equipo y configurar el workspace.
           </p>
-          <Link href="/login" className="mt-4 inline-block text-sm text-primary hover:underline">
-            Ir al login
+          <Link
+            href={`/login?slug=${encodeURIComponent(form.getValues('slug'))}`}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-[7px] text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Ir al login →
           </Link>
         </CardContent>
       </Card>

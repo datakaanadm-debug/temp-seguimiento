@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -29,11 +29,19 @@ type FormValues = z.infer<typeof schema>
 
 export function LoginForm() {
   const router = useRouter()
+  const params = useSearchParams()
   const [submitting, setSubmitting] = useState(false)
 
+  // Pre-llenar slug si viene de /registro (?slug=mi-empresa) o si está en
+  // cookie/localStorage de una sesión previa.
+  const slugFromUrl = params?.get('slug')
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { tenantSlug: getTenantSlug() ?? '', email: '', password: '' },
+    defaultValues: {
+      tenantSlug: slugFromUrl ?? getTenantSlug() ?? '',
+      email: '',
+      password: '',
+    },
   })
 
   const onSubmit = async (data: FormValues) => {
