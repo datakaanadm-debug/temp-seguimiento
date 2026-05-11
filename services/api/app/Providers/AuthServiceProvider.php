@@ -34,6 +34,8 @@ use App\Modules\Reports\Http\Policies\ReportRunPolicy;
 use App\Modules\Reports\Http\Policies\ReportTemplatePolicy;
 use App\Modules\AI\Domain\AiInsight;
 use App\Modules\AI\Http\Policies\AiInsightPolicy;
+use App\Modules\Mentorship\Domain\MentorSession;
+use App\Modules\Mentorship\Http\Policies\MentorSessionPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
 class AuthServiceProvider extends ServiceProvider
@@ -69,6 +71,9 @@ class AuthServiceProvider extends ServiceProvider
 
         // AI
         AiInsight::class => AiInsightPolicy::class,
+
+        // Mentorship
+        MentorSession::class => MentorSessionPolicy::class,
     ];
 
     public function boot(): void

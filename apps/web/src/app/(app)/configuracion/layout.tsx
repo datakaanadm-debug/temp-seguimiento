@@ -22,8 +22,16 @@ const NAV: NavItem[] = [
   { href: '/configuracion/notificaciones', label: 'Notificaciones', icon: 'Bell', section: 'Personal' },
 
   // Workspace — solo staff. Filtros por rol granulares:
-  //   - empresa, roles, integraciones, facturacion → solo tenant_admin
+  //   - empresa, roles → solo tenant_admin
   //   - equipo, onboarding-plantilla → tenant_admin + hr (también gestionan)
+  //
+  // OCULTADOS del sidebar hasta tener integración real:
+  //   - /configuracion/integraciones — toda la página es mock (Slack/Calendar/SSO
+  //     sin OAuth). Reactivar cuando exista ≥1 conector funcional.
+  //   - /configuracion/facturacion — todo mock (planes, facturas, downloads).
+  //     Reactivar cuando Stripe/MercadoPago esté integrado.
+  // Las rutas siguen existiendo para no romper bookmarks; cada una muestra
+  // un banner "En desarrollo · datos de ejemplo" para evitar engañar al user.
   { href: '/configuracion/empresa', label: 'Empresa', icon: 'Onboard', section: 'Workspace',
     roles: ['tenant_admin'] },
   { href: '/configuracion/equipo', label: 'Usuarios y equipo', icon: 'People', section: 'Workspace',
@@ -32,10 +40,6 @@ const NAV: NavItem[] = [
     roles: ['tenant_admin'] },
   { href: '/configuracion/onboarding-plantilla', label: 'Plantilla de onboarding', icon: 'Onboard', section: 'Workspace',
     roles: ['tenant_admin', 'hr'] },
-  { href: '/configuracion/integraciones', label: 'Integraciones', icon: 'Auto', section: 'Workspace',
-    roles: ['tenant_admin'] },
-  { href: '/configuracion/facturacion', label: 'Facturación', icon: 'Attach', section: 'Workspace',
-    roles: ['tenant_admin'] },
 ]
 
 export default function ConfiguracionLayout({ children }: { children: React.ReactNode }) {

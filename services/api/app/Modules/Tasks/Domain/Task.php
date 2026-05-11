@@ -128,6 +128,19 @@ class Task extends BaseModel
             ->withPivot(['role', 'assigned_at', 'assigned_by']);
     }
 
+    /**
+     * Co-asignados (no el responsable principal). Filtra el pivot a role='assignee'.
+     * Permite `with('collaborators')` para evitar el N+1 que tenía el TaskResource
+     * cuando armaba la lista manualmente con DB::table por cada Task.
+     */
+    public function collaborators()
+    {
+        return $this->belongsToMany(User::class, 'task_assignees', 'task_id', 'user_id')
+            ->wherePivot('role', AssigneeRole::Assignee->value)
+            ->withPivot(['role', 'assigned_at', 'assigned_by'])
+            ->orderBy('task_assignees.assigned_at');
+    }
+
     public function comments(): MorphMany
     {
         return $this->morphMany(Comment::class, 'commentable');

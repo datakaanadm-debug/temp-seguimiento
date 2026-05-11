@@ -150,12 +150,12 @@ export default function IaPage() {
           </div>
         </PaperCard>
         <PaperCard>
-          <div className="text-[11px] text-ink-3">Ahorro estimado</div>
+          <div className="text-[11px] text-ink-3">Total interacciones IA</div>
           <div className="mt-1 font-serif text-[28px] leading-none tracking-tight text-ink">
-            ~{Math.round((summaries.length + resolved) * 0.25)}h
+            {summariesLoading || insightsLoading ? '—' : summaries.length + insights.length}
           </div>
-          <PaperBadge tone="ok" className="mt-2 !text-[10px]">
-            esta semana
+          <PaperBadge tone="neutral" className="mt-2 !text-[10px]">
+            histórico
           </PaperBadge>
         </PaperCard>
       </div>
@@ -291,19 +291,22 @@ export default function IaPage() {
         </PaperCard>
       </div>
 
-      {/* Capabilities */}
+      {/* Capabilities — solo las 3 que existen con endpoint backend real.
+          Removidas hasta que se construyan:
+          - "Match de mentor" (no hay /ai/mentor-match)
+          - "Predicción de contratación" (no hay modelo de predicción)
+          - "Coaching proactivo" (chat existe pero "proactivo" implica push,
+            no hay scheduler que lo dispare sin pregunta del user). */}
       <div className="mt-6">
         <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.6px] text-ink-3">
-          Qué puede hacer el coach IA
+          Qué puede hacer el coach IA hoy
         </div>
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
           {[
-            { t: 'Resúmenes diarios y semanales', d: 'Transforma tu actividad en bitácoras bien escritas.' },
-            { t: 'Detección de bloqueos', d: 'Señala practicantes con patrones de atraso antes de que escalen.' },
-            { t: 'Narrativa de evaluaciones', d: 'Genera borrador de evaluación que puedes revisar y publicar.' },
-            { t: 'Match de mentor', d: 'Sugiere el mejor mentor para un practicante nuevo.' },
-            { t: 'Coaching proactivo', d: 'Tips contextuales basados en tus tareas y objetivos.' },
-            { t: 'Predicción de contratación', d: 'Estima probabilidad de conversión a empleado formal.' },
+            { t: 'Resúmenes diarios y semanales', d: 'Transforma tu actividad en bitácoras bien escritas. Disponible desde /reportes-diarios/hoy.' },
+            { t: 'Detección de bloqueos', d: 'Señala practicantes con patrones de atraso o productividad baja. Insights aparecen arriba.' },
+            { t: 'Narrativa de evaluaciones', d: 'Genera borrador de evaluación que puedes revisar y publicar desde /evaluaciones.' },
+            { t: 'Chat contextual', d: 'Pregúntale por priorización, ayuda con bitácora o análisis de tu equipo desde el FAB ✨.' },
           ].map((c) => (
             <div
               key={c.t}

@@ -92,22 +92,21 @@ export default function ReportesPage() {
         sub={`${totalRuns} reportes generados · ${templates.length} plantillas disponibles`}
         right={
           <>
+            {/*
+              Removí el botón "+ Reporte personalizado" que estaba disabled
+              con tooltip "Próximamente". Era el CTA principal en negro y
+              no hacía nada — primer botón del usuario en pantalla muerto.
+              Cuando el builder visual exista (fase 3), reactivar.
+              Mientras tanto, las 4 plantillas seedeadas (university, team,
+              executive, intern) abajo son la forma de generar.
+            */}
             <Link
               href="/reportes/universidad/solicitar"
-              className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
             >
               <Icon.Onboard size={13} />
-              Reporte universidad
+              Reporte de universidad
             </Link>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
-              disabled
-              title="Próximamente: builder personalizado"
-            >
-              <Icon.Plus size={13} />
-              Reporte personalizado
-            </button>
           </>
         }
       />

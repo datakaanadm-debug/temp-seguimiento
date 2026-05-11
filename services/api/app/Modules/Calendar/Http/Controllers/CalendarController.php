@@ -130,10 +130,26 @@ class CalendarController extends Controller
             'description' => ['nullable', 'string', 'max:2000'],
         ]);
 
+        // RBAC: si se pasa `user_id` distinto al actor, solo admin/HR pueden
+        // crear eventos en agenda ajena. Antes esto NO se validaba — cualquier
+        // usuario podía meter eventos en el calendario de otro.
+        $actor = $request->user();
+        $targetUserId = $data['user_id'] ?? $actor->id;
+        if ($targetUserId !== $actor->id) {
+            $role = $actor->primaryRole();
+            $canScheduleForOthers = in_array($role, [
+                \App\Modules\Identity\Domain\Enums\MembershipRole::TenantAdmin,
+                \App\Modules\Identity\Domain\Enums\MembershipRole::HR,
+            ], true);
+            if (!$canScheduleForOthers) {
+                abort(403, 'No tienes permiso para agendar eventos en la agenda de otro usuario.');
+            }
+        }
+
         $event = CalendarEvent::create([
             'tenant_id' => TenantContext::currentId(),
-            'user_id' => $data['user_id'] ?? $request->user()->id,
-            'created_by' => $request->user()->id,
+            'user_id' => $targetUserId,
+            'created_by' => $actor->id,
             'starts_at' => Carbon::parse($data['starts_at']),
             'duration_minutes' => $data['duration_minutes'] ?? 30,
             'title' => $data['title'],
@@ -149,6 +165,19 @@ class CalendarController extends Controller
     public function destroy(string $id): JsonResponse
     {
         $e = CalendarEvent::findOrFail($id);
+
+        // Solo el dueño del evento o admin/HR pueden borrar. Antes destroy
+        // buscaba el evento por id global y lo borraba sin authorize.
+        $actor = request()->user();
+        $isOwner = $e->user_id === $actor->id;
+        $isStaff = in_array($actor->primaryRole(), [
+            \App\Modules\Identity\Domain\Enums\MembershipRole::TenantAdmin,
+            \App\Modules\Identity\Domain\Enums\MembershipRole::HR,
+        ], true);
+        if (!$isOwner && !$isStaff) {
+            abort(403, 'No tienes permiso para borrar este evento.');
+        }
+
         $e->delete();
         return response()->json(['ok' => true]);
     }

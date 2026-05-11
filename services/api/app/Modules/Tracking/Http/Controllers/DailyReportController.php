@@ -30,7 +30,44 @@ final class DailyReportController extends Controller
     {
         $query = DailyReport::query()->with(['user', 'blockers']);
 
-        $userId = $request->query('user_id', $request->user()->id);
+        // RBAC: si se pide ?user_id=otro, solo admin/HR/mentor (con asignación
+        // al intern) o team_lead (con el intern en su team) pueden ver. Antes
+        // cualquiera podía consultar bitácoras de otro user pasando user_id.
+        $actor = $request->user();
+        $userId = (string) $request->query('user_id', $actor->id);
+
+        if ($userId !== $actor->id) {
+            $role = $actor->primaryRole();
+            $canViewOthers = in_array($role, [
+                \App\Modules\Identity\Domain\Enums\MembershipRole::TenantAdmin,
+                \App\Modules\Identity\Domain\Enums\MembershipRole::HR,
+            ], true);
+
+            // Mentor del intern (mentor_assignments activos)
+            if (!$canViewOthers && $role === \App\Modules\Identity\Domain\Enums\MembershipRole::Mentor) {
+                $canViewOthers = \Illuminate\Support\Facades\DB::table('mentor_assignments')
+                    ->where('mentor_user_id', $actor->id)
+                    ->where('intern_user_id', $userId)
+                    ->where('status', 'active')
+                    ->whereNull('deleted_at')
+                    ->exists();
+            }
+
+            // Team lead del intern
+            if (!$canViewOthers && $role === \App\Modules\Identity\Domain\Enums\MembershipRole::TeamLead) {
+                $canViewOthers = \Illuminate\Support\Facades\DB::table('team_memberships as tm')
+                    ->join('teams as t', 't.id', '=', 'tm.team_id')
+                    ->where('tm.user_id', $userId)
+                    ->where('t.lead_user_id', $actor->id)
+                    ->whereNull('tm.left_at')
+                    ->exists();
+            }
+
+            if (!$canViewOthers) {
+                abort(403, 'No tienes permiso para ver bitácoras de otros usuarios.');
+            }
+        }
+
         $query->forUser($userId);
 
         if ($from = $request->query('from')) {

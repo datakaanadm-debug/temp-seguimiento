@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { apiClientServer, ApiError } from '@/lib/api-client'
 import { Icon } from '@/components/ui/icon'
-import { SectionTitle, PaperCard, PaperBadge, TonalAvatar, PriorityDot, Spark } from '@/components/ui/primitives'
+import { SectionTitle, PaperCard, PaperBadge, TonalAvatar, PriorityDot } from '@/components/ui/primitives'
 import { getSessionServer } from '@/lib/auth/server'
 import type { PaginatedResponse, Task, Profile, DataEnvelope } from '@/types/api'
 
@@ -65,12 +65,15 @@ export default async function DashboardPage() {
     (i) => i.severity === 'high' || i.severity === 'critical',
   )
 
-  // Stats
+  // Stats. Removí los `trend: [4,5,6,7,7,8,8]` hardcoded — solo el último
+  // valor era real y los 6 anteriores hardcoded falseaban una tendencia.
+  // Cuando exista `/analytics/activity-heatmap` agregado por día (último 7d),
+  // re-introducir las sparklines con data real.
   const stats = [
-    { k: 'Tareas en curso', v: activeTasks.length.toString(), d: '', trend: [4, 5, 6, 7, 7, 8, 8] },
-    { k: 'Bloqueos abiertos', v: blockedTasks.length.toString(), d: blockedTasks.length > 0 ? 'requiere atención' : '', trend: [0, 1, 0, 1, 1, 2, blockedTasks.length] },
-    { k: 'En revisión', v: inReview.length.toString(), d: 'pendientes de líder', trend: [2, 3, 2, 3, 4, 3, inReview.length] },
-    { k: 'Practicantes activos', v: interns.length.toString(), d: `de ${tenantName}`, trend: [5, 6, 6, 7, 7, 8, interns.length] },
+    { k: 'Tareas en curso', v: activeTasks.length.toString(), d: 'activas hoy' },
+    { k: 'Bloqueos abiertos', v: blockedTasks.length.toString(), d: blockedTasks.length > 0 ? 'requiere atención' : 'sin bloqueos' },
+    { k: 'En revisión', v: inReview.length.toString(), d: 'pendientes de líder' },
+    { k: 'Practicantes activos', v: interns.length.toString(), d: `de ${tenantName}` },
   ]
 
   return (
@@ -81,10 +84,11 @@ export default async function DashboardPage() {
         sub={`${activeTasks.length} tareas en curso · ${blockedTasks.length} bloqueos · ${interns.length} practicantes`}
         right={
           <>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
-              <Icon.Cal size={13} />
-              Hoy
-            </button>
+            {/*
+              Botón "Hoy" removido — era decorativo (sin onClick), inducía
+              al user a clickear esperando filtrar el dashboard por fecha.
+              Si en el futuro se quiere date-range, wirear con useQueryState.
+            */}
             <Link
               href="/tareas/nueva"
               className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
@@ -111,18 +115,15 @@ export default async function DashboardPage() {
       <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 320px' }}>
         {/* LEFT column */}
         <div className="flex min-w-0 flex-col gap-4">
-          {/* Stats */}
-          <div className="grid grid-cols-4 gap-3">
+          {/* Stats — sparklines removidas hasta tener serie histórica real */}
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {stats.map((s) => (
               <div
                 key={s.k}
                 className="rounded-lg border border-paper-line bg-paper-raised p-3.5"
               >
                 <div className="mb-1 text-[11px] tracking-[0.3px] text-ink-3">{s.k}</div>
-                <div className="flex items-end justify-between gap-2">
-                  <div className="font-serif text-[28px] leading-none tracking-tight">{s.v}</div>
-                  <Spark data={s.trend} width={64} height={22} />
-                </div>
+                <div className="font-serif text-[28px] leading-none tracking-tight">{s.v}</div>
                 {s.d && (
                   <div className="mt-1.5 text-[11px] text-ink-3">{s.d}</div>
                 )}

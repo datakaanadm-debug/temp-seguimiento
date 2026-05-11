@@ -18,13 +18,21 @@ final class ProfileResource extends JsonResource
         $isSelf = $actor?->id === $this->user_id;
         $isStaff = $actor?->primaryRole()?->isStaff() ?? false;
 
-        // Resolver el rol efectivo desde memberships (fuente de verdad: role, no kind)
-        $membership = \DB::table('memberships')
-            ->where('tenant_id', $this->tenant_id)
-            ->where('user_id', $this->user_id)
-            ->where('status', 'active')
-            ->first();
-        $role = $membership?->role;
+        // Resolver el rol efectivo desde memberships (fuente de verdad: role, no kind).
+        // Si el caller eager-loadeó `activeMembership` (vía with()), usar esa instancia
+        // — cero queries. Si no, fallback a DB::table (slow path, evitarlo).
+        // Fix N+1: ProfileController::index/show ahora carga `activeMembership`.
+        if ($this->relationLoaded('activeMembership')) {
+            $role = $this->activeMembership?->role;
+        } else {
+            $membership = \DB::table('memberships')
+                ->where('tenant_id', $this->tenant_id)
+                ->where('user_id', $this->user_id)
+                ->where('status', 'active')
+                ->first();
+            $role = $membership?->role;
+        }
+        $role = is_string($role) ? $role : ($role?->value ?? null);
         $roleLabel = $role ? $this->roleLabel($role) : null;
 
         $base = [

@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { apiClientServer, ApiError } from '@/lib/api-client'
 import { Icon } from '@/components/ui/icon'
 import {
-  SectionTitle, PaperCard, PaperBadge, PriorityDot, Spark,
+  SectionTitle, PaperCard, PaperBadge, PriorityDot,
 } from '@/components/ui/primitives'
 import { getSessionServer } from '@/lib/auth/server'
 import type { PaginatedResponse, Task, DailyReport } from '@/types/api'
@@ -61,8 +61,9 @@ export default async function MiDiaPage() {
   }).length
   const hoursWeek = tasks.reduce((a, t) => a + (t.actual_minutes / 60), 0)
 
-  const weekTrend = [4, 5, 4, 6, 7, 5, Math.min(10, Math.round(hoursWeek / 4))]
-  const tasksTrend = [3, 3, 4, 4, 4, 3, myActive.length]
+  // Trends hardcoded removidos — solo el último punto era real y los 6
+  // anteriores hardcoded falseaban una tendencia. Cuando exista serie
+  // histórica (e.g. /analytics/my-activity?days=7), re-introducirlas.
 
   return (
     <div className="mx-auto max-w-[1200px] px-7 py-5 pb-10">
@@ -90,12 +91,12 @@ export default async function MiDiaPage() {
         }
       />
 
-      {/* KPI row */}
-      <div className="mb-4 grid grid-cols-4 gap-3">
-        <KpiCard k="Tareas activas" v={String(myActive.length)} sub="asignadas a ti" trend={tasksTrend} />
-        <KpiCard k="Horas esta semana" v={`${hoursWeek.toFixed(1)}h`} sub="meta 30h" trend={weekTrend} />
-        <KpiCard k="Completadas 7d" v={String(doneThisWeek)} sub={doneThisWeek > 0 ? '↑ sigue así' : 'vamos por la 1ª'} trend={[1, 1, 2, 2, 3, doneThisWeek, doneThisWeek]} />
-        <KpiCard k="Estado bitácora" v={todayReport ? (todayReport.status === 'submitted' ? 'Enviada' : 'Borrador') : 'Pendiente'} sub={todayReport?.hours_worked ? `${todayReport.hours_worked}h reportadas` : 'reporta en 30s'} trend={[1, 1, 1, 1, 1, 1, todayReport ? 2 : 0]} />
+      {/* KPI row — sparklines removidas hasta tener serie histórica real */}
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCard k="Tareas activas" v={String(myActive.length)} sub="asignadas a ti" />
+        <KpiCard k="Horas esta semana" v={`${hoursWeek.toFixed(1)}h`} sub="acumuladas en time entries" />
+        <KpiCard k="Completadas 7d" v={String(doneThisWeek)} sub={doneThisWeek > 0 ? '↑ sigue así' : 'vamos por la 1ª'} />
+        <KpiCard k="Estado bitácora" v={todayReport ? (todayReport.status === 'submitted' ? 'Enviada' : 'Borrador') : 'Pendiente'} sub={todayReport?.hours_worked ? `${todayReport.hours_worked}h reportadas` : 'reporta en 30s'} />
       </div>
 
       <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 320px' }}>
@@ -148,30 +149,29 @@ export default async function MiDiaPage() {
             )}
           </PaperCard>
 
-          {/* Mis objetivos */}
-          <PaperCard title="Objetivo del mes" right={<PaperBadge tone="accent">Q2</PaperBadge>}>
+          {/* Avance de la semana — antes mostraba "Proyectos entregados / 3"
+              con meta hardcoded, pero el valor era doneThisWeek (tareas, no
+              proyectos). Cambiado a un card honesto sobre el ritmo real. */}
+          <PaperCard title="Avance de la semana">
             <div className="flex items-end gap-6">
               <div>
                 <div className="font-mono text-[11px] uppercase tracking-[0.6px] text-ink-3">
-                  Proyectos entregados
+                  Tareas completadas
                 </div>
                 <div className="mt-1 font-serif text-[44px] leading-none tracking-tight">
-                  {Math.min(3, doneThisWeek)}<span className="text-[18px] text-ink-3"> / 3</span>
+                  {doneThisWeek}
                 </div>
               </div>
               <div className="flex-1">
-                <div className="mb-1 flex justify-between text-[11px]">
-                  <span className="text-ink-3">Avance</span>
-                  <span className="font-mono text-ink">{Math.round((Math.min(3, doneThisWeek) / 3) * 100)}%</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-paper-line-soft">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${Math.min(100, (doneThisWeek / 3) * 100)}%` }}
-                  />
+                <div className="text-[11px] text-ink-3">
+                  {doneThisWeek === 0
+                    ? 'Aún no has cerrado tareas esta semana. Empieza por la que tenga vencimiento más cercano.'
+                    : doneThisWeek < 3
+                      ? `Vas por ${doneThisWeek}. Termina otra hoy para mantener ritmo.`
+                      : 'Buen ritmo esta semana — sigue así.'}
                 </div>
                 <div className="mt-2 text-[11px] text-ink-3">
-                  Sigue reportando tu día para mantener visibilidad con tu líder.
+                  Reportar tu día ayuda a tu líder a ver tu avance.
                 </div>
               </div>
             </div>
@@ -247,14 +247,11 @@ export default async function MiDiaPage() {
   )
 }
 
-function KpiCard({ k, v, sub, trend }: { k: string; v: string; sub?: string; trend: number[] }) {
+function KpiCard({ k, v, sub }: { k: string; v: string; sub?: string }) {
   return (
     <div className="rounded-lg border border-paper-line bg-paper-raised p-3.5">
       <div className="text-[11px] text-ink-3">{k}</div>
-      <div className="flex items-end justify-between gap-2">
-        <div className="mt-1 font-serif text-[28px] leading-none tracking-tight text-ink">{v}</div>
-        <Spark data={trend} width={64} height={22} />
-      </div>
+      <div className="mt-1 font-serif text-[28px] leading-none tracking-tight text-ink">{v}</div>
       {sub && <div className="mt-1.5 text-[11px] text-ink-3">{sub}</div>}
     </div>
   )

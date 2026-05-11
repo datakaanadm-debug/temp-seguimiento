@@ -49,12 +49,30 @@ export default function IntegracionesPage() {
 
   return (
     <div>
+      {/*
+        Banner honesto: la página es mock — los estados "Conectada" de Slack,
+        Calendar y SSO no tienen OAuth real, y "Conectar/Desconectar/Notificarme"
+        no hacen nada. Mientras no exista ≥1 conector funcional, mostrar este
+        aviso para no engañar al admin que cree estar gestionando integraciones.
+      */}
+      <div className="mb-4 rounded-md border border-warn/40 bg-warn-soft p-3 text-[12.5px] text-warn-ink">
+        <b>En desarrollo · datos de ejemplo.</b> Las integraciones todavía
+        no están conectadas a OAuth real. Esta vista es ilustrativa del
+        roadmap de conectores. Para gestionar integraciones manualmente,
+        contacta a soporte.
+      </div>
+
       <SectionTitle
         kicker="Workspace · Integraciones"
         title="Conecta tus herramientas"
-        sub={`${connected} conectadas · ${INTEGRATIONS.length - connected} disponibles para integrar`}
+        sub={`${INTEGRATIONS.length} conectores en roadmap`}
         right={
-          <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
+          <button
+            type="button"
+            disabled
+            title="Próximamente — endpoint /webhooks pendiente"
+            className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-3 opacity-50 cursor-not-allowed"
+          >
             <Icon.Auto size={13} />
             Ver webhooks
           </button>
@@ -109,19 +127,35 @@ export default function IntegracionesPage() {
             </div>
             <p className="mb-3 flex-1 text-[11.5px] leading-[1.5] text-ink-3">{i.description}</p>
             <div className="flex items-center justify-between">
+              {/*
+                Botones Desconectar/Conectar/Notificarme deshabilitados hasta
+                tener OAuth real. El estado "Conectada" del mock se mantiene
+                visualmente para no perder la sensación del roadmap, pero el
+                banner superior aclara que no es real.
+              */}
               {i.status === 'connected' ? (
                 <>
                   <PaperBadge tone="ok">
                     <Icon.Check size={9} className="mr-1" /> Conectada
                   </PaperBadge>
-                  <button className="text-[11px] text-destructive hover:underline">
+                  <button
+                    type="button"
+                    disabled
+                    title="Próximamente — OAuth pendiente"
+                    className="text-[11px] text-ink-3 opacity-50 cursor-not-allowed"
+                  >
                     Desconectar
                   </button>
                 </>
               ) : i.status === 'available' ? (
                 <>
                   <PaperBadge tone="neutral">Disponible</PaperBadge>
-                  <button className="inline-flex items-center gap-1 rounded-md bg-ink px-2.5 py-[5px] text-[11px] font-medium text-paper-surface hover:bg-ink-2">
+                  <button
+                    type="button"
+                    disabled
+                    title="Próximamente — OAuth pendiente"
+                    className="inline-flex items-center gap-1 rounded-md bg-paper-line-soft px-2.5 py-[5px] text-[11px] font-medium text-ink-3 cursor-not-allowed opacity-70"
+                  >
                     <Icon.Plus size={10} />
                     Conectar
                   </button>
@@ -129,7 +163,12 @@ export default function IntegracionesPage() {
               ) : (
                 <>
                   <PaperBadge tone="warn">Próximamente</PaperBadge>
-                  <button className="text-[11px] text-ink-3 hover:text-ink">
+                  <button
+                    type="button"
+                    disabled
+                    title="Próximamente"
+                    className="text-[11px] text-ink-3 opacity-50 cursor-not-allowed"
+                  >
                     Notificarme
                   </button>
                 </>
