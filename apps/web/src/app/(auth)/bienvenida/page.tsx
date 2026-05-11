@@ -1,9 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { Icon } from '@/components/ui/icon'
 import { cn } from '@/lib/utils'
+import { apiClient } from '@/lib/api-client'
+import { useAuth } from '@/providers/auth-provider'
+import { useMyProfile } from '@/features/people/hooks/use-people'
+import {
+  listMentorAssignments,
+  updateProfile,
+  upsertInternData,
+} from '@/features/people/api/people'
 import { TourDialog } from '@/features/onboarding/components/tour-dialog'
 
 const STEPS = [
@@ -13,16 +23,30 @@ const STEPS = [
   { id: 'mentor', label: 'Tu mentor', icon: 'Mentor' as const },
 ]
 
+/**
+ * Onboarding del intern. Antes este wizard era 100% local-state: 4 pasos
+ * que nada persistía y "Ir a mi día" descartaba todo lo escrito.
+ *
+ * Hoy:
+ *  - Step 1 (Perfil): persiste university/career/semester en intern_data
+ *    via PUT /profiles/{id}/intern-data antes de avanzar.
+ *  - Step 2 (Docs): los checks NDA + Reglamento se guardan en
+ *    profile.social_links.docs_signed como flag (no hay tabla dedicada y
+ *    es lo más pragmático para tracking; para uploads reales el user va
+ *    a /onboarding después). Los checks se hidratan al recargar.
+ *  - Step 3 (Tour): TourDialog ya cableado.
+ *  - Step 4 (Mentor): carga el mentor real desde mentor_assignments del
+ *    intern. Si no hay mentor asignado todavía, mensaje honesto.
+ *  - Finalizar: POST /auth/me/tour-complete + redirect a /mi-dia.
+ */
 export default function BienvenidaPage() {
   const router = useRouter()
-  // TODO: hidratar desde useAuth cuando se conecte el flujo real.
-  // Por ahora la página es un stub visual; los tipos son explícitos
-  // para que TS no narrow `null` literal y permita acceder a `.name?`.
-  const user = null as { name?: string | null } | null
-  const tenant = null as { name?: string | null } | null
+  const qc = useQueryClient()
+  const { user, tenant, setUser } = useAuth()
+  const { data: profile, isLoading: profileLoading } = useMyProfile()
+
   const [step, setStep] = useState(0)
-  const [profile, setProfile] = useState({
-    avatar_url: '',
+  const [profileForm, setProfileForm] = useState({
     university: '',
     career: '',
     semester: '',
@@ -30,18 +54,128 @@ export default function BienvenidaPage() {
   const [docsSigned, setDocsSigned] = useState({ nda: false, regulations: false })
   const [tourDone, setTourDone] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
+  const [finishing, setFinishing] = useState(false)
+
+  // Hidratar form desde profile real cuando carga
+  useEffect(() => {
+    if (!profile) return
+    const i = profile.intern_data
+    setProfileForm({
+      university: i?.university ?? '',
+      career: i?.career ?? '',
+      semester: i?.semester != null ? String(i.semester) : '',
+    })
+    // Re-hidratar docs flags si ya estaban guardados (persist across reloads).
+    const links = (profile.social_links as Record<string, unknown> | undefined) ?? {}
+    const docs = (links.docs_signed as Record<string, boolean> | undefined) ?? {}
+    setDocsSigned({
+      nda: docs.nda === true,
+      regulations: docs.regulations === true,
+    })
+    // Si el user ya completó el tour previamente, marcar tourDone visualmente.
+    if (user?.tour_completed_at) setTourDone(true)
+  }, [profile?.id, user?.tour_completed_at])
+
+  // Mentor real (query activa solo en step 4 para no pegarle al endpoint
+  // si el user no llega a esa pantalla).
+  const { data: assignmentsData } = useQuery({
+    queryKey: ['my-mentor-assignments-active', user?.id],
+    queryFn: () => listMentorAssignments({ intern_user_id: user!.id, status: 'active' }),
+    enabled: !!user?.id && step >= 3,
+  })
+  const mentor = assignmentsData?.data?.[0]?.mentor ?? null
+
+  // ── Mutations ────────────────────────────────────────────────────────
+  const saveProfile = useMutation({
+    mutationFn: async () => {
+      if (!profile) throw new Error('Perfil no disponible')
+      const sem = profileForm.semester ? Number(profileForm.semester) : null
+      // intern_data upsert (university/career/semester).
+      await upsertInternData(profile.id, {
+        university: profileForm.university.trim() || null,
+        career: profileForm.career.trim() || null,
+        semester: sem,
+      })
+      return true
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'No se pudo guardar tu perfil'),
+  })
+
+  const saveDocs = useMutation({
+    mutationFn: async () => {
+      if (!profile) throw new Error('Perfil no disponible')
+      const existingLinks = (profile.social_links as Record<string, unknown> | undefined) ?? {}
+      // Guarda en profile.social_links.docs_signed — no es la home ideal
+      // (no hay tabla `intern_consents` dedicada) pero el campo es jsonb y
+      // ya está disponible. Si en el futuro se necesita auditoría legal,
+      // migrar a `intern_consents` con timestamp + ip + version del doc.
+      await updateProfile(profile.id, {
+        social_links: {
+          ...existingLinks,
+          docs_signed: docsSigned,
+        },
+      } as any)
+      return true
+    },
+    onError: (e: any) => toast.error(e?.message ?? 'No se pudo guardar las firmas'),
+  })
+
+  const completeTour = useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.post<{ user: typeof user }>('/api/v1/auth/me/tour-complete')
+      if (res.user) setUser(res.user as any)
+      return res
+    },
+  })
+
+  // ── Validación por step ──────────────────────────────────────────────
+  const isStep0Valid =
+    profileForm.university.trim().length > 1 &&
+    profileForm.career.trim().length > 1
+  const isStep1Valid = docsSigned.nda && docsSigned.regulations
 
   const pct = ((step + 1) / STEPS.length) * 100
   const isLast = step === STEPS.length - 1
 
-  const next = () => {
+  const goNext = async () => {
+    // Persiste antes de avanzar. Si la mutation falla, no avanzar.
+    try {
+      if (step === 0) {
+        await saveProfile.mutateAsync()
+        await qc.invalidateQueries({ queryKey: ['my-profile'] })
+      }
+      if (step === 1) {
+        await saveDocs.mutateAsync()
+        await qc.invalidateQueries({ queryKey: ['my-profile'] })
+      }
+    } catch {
+      return // ya mostró toast
+    }
+
     if (isLast) {
-      router.replace('/mi-dia')
+      setFinishing(true)
+      try {
+        await completeTour.mutateAsync()
+        toast.success('¡Bienvenido a Senda!')
+        router.replace('/mi-dia')
+      } catch (e: any) {
+        toast.error(e?.message ?? 'No se pudo finalizar el onboarding')
+        setFinishing(false)
+      }
     } else {
       setStep((s) => Math.min(s + 1, STEPS.length - 1))
     }
   }
-  const prev = () => setStep((s) => Math.max(0, s - 1))
+
+  const goPrev = () => setStep((s) => Math.max(0, s - 1))
+
+  const nextDisabled =
+    finishing ||
+    saveProfile.isPending ||
+    saveDocs.isPending ||
+    completeTour.isPending ||
+    (step === 0 && !isStep0Valid) ||
+    (step === 1 && !isStep1Valid)
 
   return (
     <div className="min-h-dvh bg-paper">
@@ -52,7 +186,7 @@ export default function BienvenidaPage() {
             className="grid h-8 w-8 place-items-center rounded-md bg-ink font-serif italic text-paper-surface"
             style={{ fontSize: 17 }}
           >
-            i
+            s
           </div>
           <div>
             <div className="text-[13px] font-semibold text-ink">
@@ -117,46 +251,47 @@ export default function BienvenidaPage() {
 
           <div className="p-5">
             {step === 0 && (
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Universidad">
-                  <input
-                    type="text"
-                    placeholder="Ej. UNAM"
-                    value={profile.university}
-                    onChange={(e) => setProfile({ ...profile, university: e.target.value })}
-                    className="w-full rounded-md border border-paper-line bg-paper-surface px-2.5 py-[7px] text-[13px] text-ink outline-none focus:border-primary"
-                  />
-                </Field>
-                <Field label="Carrera">
-                  <input
-                    type="text"
-                    placeholder="Ej. Ingeniería en Sistemas"
-                    value={profile.career}
-                    onChange={(e) => setProfile({ ...profile, career: e.target.value })}
-                    className="w-full rounded-md border border-paper-line bg-paper-surface px-2.5 py-[7px] text-[13px] text-ink outline-none focus:border-primary"
-                  />
-                </Field>
-                <Field label="Semestre actual">
-                  <input
-                    type="number"
-                    min={1}
-                    max={14}
-                    placeholder="7"
-                    value={profile.semester}
-                    onChange={(e) => setProfile({ ...profile, semester: e.target.value })}
-                    className="w-full rounded-md border border-paper-line bg-paper-surface px-2.5 py-[7px] text-[13px] text-ink outline-none focus:border-primary"
-                  />
-                </Field>
-                <Field label="Avatar · URL (opcional)">
-                  <input
-                    type="url"
-                    placeholder="https://…"
-                    value={profile.avatar_url}
-                    onChange={(e) => setProfile({ ...profile, avatar_url: e.target.value })}
-                    className="w-full rounded-md border border-paper-line bg-paper-surface px-2.5 py-[7px] text-[13px] text-ink outline-none focus:border-primary"
-                  />
-                </Field>
-              </div>
+              <>
+                {profileLoading ? (
+                  <div className="py-4 text-center text-[12.5px] text-ink-3">Cargando tu perfil…</div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Universidad *">
+                      <input
+                        type="text"
+                        placeholder="Ej. UNAM"
+                        value={profileForm.university}
+                        onChange={(e) => setProfileForm({ ...profileForm, university: e.target.value })}
+                        className="w-full rounded-md border border-paper-line bg-paper-surface px-2.5 py-[7px] text-[13px] text-ink outline-none focus:border-primary"
+                      />
+                    </Field>
+                    <Field label="Carrera *">
+                      <input
+                        type="text"
+                        placeholder="Ej. Ingeniería en Sistemas"
+                        value={profileForm.career}
+                        onChange={(e) => setProfileForm({ ...profileForm, career: e.target.value })}
+                        className="w-full rounded-md border border-paper-line bg-paper-surface px-2.5 py-[7px] text-[13px] text-ink outline-none focus:border-primary"
+                      />
+                    </Field>
+                    <Field label="Semestre actual">
+                      <input
+                        type="number"
+                        min={1}
+                        max={14}
+                        placeholder="7"
+                        value={profileForm.semester}
+                        onChange={(e) => setProfileForm({ ...profileForm, semester: e.target.value })}
+                        className="w-full rounded-md border border-paper-line bg-paper-surface px-2.5 py-[7px] text-[13px] text-ink outline-none focus:border-primary"
+                      />
+                    </Field>
+                    <div className="md:col-span-2 text-[11.5px] text-ink-3">
+                      <b className="text-ink-2">Tip:</b> podrás editar más datos académicos
+                      (horas, tutor, GPA) después desde tu perfil.
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {step === 1 && (
@@ -175,6 +310,10 @@ export default function BienvenidaPage() {
                     setDocsSigned({ ...docsSigned, regulations: !docsSigned.regulations })
                   }
                 />
+                <div className="mt-2 rounded-md border border-dashed border-paper-line bg-paper-surface p-3 text-[11.5px] text-ink-3">
+                  Para entregar copias firmadas digitalmente o subir tu INE y otros documentos,
+                  ve a tu sección de <b className="text-ink-2">Onboarding</b> después del registro.
+                </div>
               </div>
             )}
 
@@ -221,37 +360,51 @@ export default function BienvenidaPage() {
             )}
 
             {step === 3 && (
-              <div className="flex gap-4 rounded-lg border border-paper-line-soft bg-paper-surface p-4">
-                <div
-                  className="grid h-16 w-16 shrink-0 place-items-center rounded-full font-semibold text-white"
-                  style={{ background: 'hsl(var(--tag-1))' }}
-                >
-                  SB
+              mentor ? (
+                <div className="flex gap-4 rounded-lg border border-paper-line-soft bg-paper-surface p-4">
+                  <div
+                    className="grid h-16 w-16 shrink-0 place-items-center rounded-full font-semibold text-white"
+                    style={{ background: 'hsl(var(--tag-1))' }}
+                  >
+                    {initialsOf(mentor.name ?? mentor.email ?? 'M')}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono text-[11px] uppercase tracking-[0.5px] text-ink-3">
+                      TU MENTOR ASIGNADO
+                    </div>
+                    <div className="mt-1 font-serif text-[20px] text-ink">
+                      {mentor.name ?? mentor.email}
+                    </div>
+                    {mentor.email && (
+                      <div className="text-[12.5px] text-ink-3">{mentor.email}</div>
+                    )}
+                    <div className="mt-3 rounded-md bg-paper-raised p-3 text-[12.5px] leading-[1.55] text-ink-2">
+                      Tu mentor recibió la notificación de la asignación. Coordinarán
+                      su primera sesión 1:1 a través de <b>/mentoria</b>.
+                    </div>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="font-mono text-[11px] uppercase tracking-[0.5px] text-ink-3">
-                    TU MENTOR ASIGNADO
+              ) : (
+                <div className="rounded-lg border border-dashed border-paper-line bg-paper-surface p-5 text-center">
+                  <Icon.Mentor size={24} className="mx-auto mb-2 text-ink-3" />
+                  <div className="font-serif text-[16px] text-ink">
+                    Mentor pendiente de asignar
                   </div>
-                  <div className="mt-1 font-serif text-[20px] text-ink">Sofía Beltrán</div>
-                  <div className="text-[13px] text-ink-2">Sr. Designer · Diseño</div>
-                  <div className="mt-3 rounded-md bg-paper-raised p-3 text-[12.5px] leading-[1.55] text-ink-2">
-                    “¡Bienvenido! Nos reuniremos cada dos semanas los jueves a las 10:00. Antes
-                    de nuestra primera sesión, completa tu perfil y anota 3 preguntas que
-                    quieras discutir.”
-                  </div>
-                  <div className="mt-3 flex items-center gap-2 text-[11px] text-ink-3">
-                    <Icon.Cal size={12} /> Primera sesión: <b className="text-ink-2">jueves 10:00</b>
-                  </div>
+                  <p className="mx-auto mt-1 max-w-md text-[12.5px] text-ink-3">
+                    Tu líder o RRHH te asignarán un mentor en los próximos días.
+                    Mientras tanto, puedes empezar a explorar la plataforma —
+                    tu primera sesión la verás reflejada en <b>/mentoria</b>.
+                  </p>
                 </div>
-              </div>
+              )
             )}
           </div>
 
           <div className="flex items-center justify-between border-t border-paper-line-soft p-4">
             <button
               type="button"
-              onClick={prev}
-              disabled={step === 0}
+              onClick={goPrev}
+              disabled={step === 0 || nextDisabled}
               className="inline-flex items-center gap-1 text-[12px] text-ink-3 hover:text-ink disabled:opacity-40"
             >
               <Icon.Chev size={11} className="rotate-180" />
@@ -259,10 +412,17 @@ export default function BienvenidaPage() {
             </button>
             <button
               type="button"
-              onClick={next}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-[7px] text-[13px] font-medium text-primary-foreground hover:opacity-95"
+              onClick={goNext}
+              disabled={nextDisabled}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-[7px] text-[13px] font-medium text-primary-foreground hover:opacity-95 disabled:opacity-50"
             >
-              {isLast ? 'Ir a mi día' : 'Siguiente'}
+              {finishing
+                ? 'Finalizando…'
+                : saveProfile.isPending || saveDocs.isPending
+                  ? 'Guardando…'
+                  : isLast
+                    ? 'Ir a mi día'
+                    : 'Siguiente'}
               <Icon.Chev size={12} />
             </button>
           </div>
@@ -289,9 +449,17 @@ function stepSubtitle(step: number, name?: string) {
       `Esta información se comparte con tu líder y mentor, ${name?.split(' ')[0] ?? 'hola'}.`,
       'Léelos con calma. Puedes descargar una copia en cualquier momento desde tu perfil.',
       'En 60 segundos aprenderás a usar lo esencial del producto.',
-      'Agendamos tu primera sesión 1:1. Tu mentor te dejó un mensaje.',
+      'Tu mentor ya fue notificado. Agendarán su primera sesión 1:1.',
     ][step] ?? ''
   )
+}
+
+function initialsOf(name: string): string {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((s) => s[0]?.toUpperCase() ?? '')
+    .join('')
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
