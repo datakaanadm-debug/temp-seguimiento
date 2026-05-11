@@ -120,7 +120,10 @@ export default function AutomatizacionPage() {
         sub={
           isLoading
             ? 'Cargando reglas…'
-            : `${meta.active} reglas activas · ${meta.runs_this_month} ejecuciones registradas · ahorran ~${Math.round(meta.runs_this_month * 0.15)}h/sem`
+            // Removida "ahorran ~Xh/sem" — el factor 0.15 era inventado.
+            // Cuando exista `avg_time_saved_seconds` por rule en backend,
+            // re-introducir como suma real.
+            : `${meta.active} reglas activas · ${meta.runs_this_month} ejecuciones este mes`
         }
         right={
           <Can capability="create_automations">

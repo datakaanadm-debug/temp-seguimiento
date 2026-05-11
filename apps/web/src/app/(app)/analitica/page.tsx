@@ -44,12 +44,16 @@ export default function AnaliticaPage() {
     const overdue = tasks.filter((t) => t.is_overdue && t.state !== 'DONE' && t.state !== 'CANCELLED').length
     const blocked = tasks.filter((t) => t.state === 'BLOCKED').length
     const compliance = total ? Math.round((done / total) * 100) : 0
+    // Removidos los deltas inventados (+4 / +1) y la card "Retención esperada
+    // 94%" que era 100% hardcoded — métricas falsas en pantalla ejecutiva
+    // riesgan reportes erróneos. Cuando exista snapshot histórico (kpi_snapshots
+    // agregado por periodo) re-introducir deltas calculados contra periodo
+    // anterior. Retención esperada requiere modelo de predicción, fuera de scope.
     return [
-      { k: 'Cumplimiento global', v: `${compliance}%`, d: '+4', tone: 'ok' as const },
-      { k: 'Practicantes activos', v: String(interns.length), d: 'de este trimestre', tone: 'neutral' as const },
-      { k: 'Tareas en riesgo', v: String(overdue + blocked), d: overdue + blocked > 0 ? 'requieren atención' : '—', tone: overdue + blocked > 0 ? ('warn' as const) : ('neutral' as const) },
-      { k: 'Bloqueos abiertos', v: String(blocked), d: '', tone: blocked > 0 ? ('danger' as const) : ('ok' as const) },
-      { k: 'Retención esperada', v: '94%', d: '+1', tone: 'ok' as const },
+      { k: 'Cumplimiento global', v: `${compliance}%`, d: `${done} de ${total} tareas`, tone: 'ok' as const },
+      { k: 'Practicantes activos', v: String(interns.length), d: 'con perfil intern', tone: 'neutral' as const },
+      { k: 'Tareas en riesgo', v: String(overdue + blocked), d: overdue + blocked > 0 ? 'requieren atención' : 'sin riesgos', tone: overdue + blocked > 0 ? ('warn' as const) : ('neutral' as const) },
+      { k: 'Bloqueos abiertos', v: String(blocked), d: blocked > 0 ? 'reportados activos' : 'sin bloqueos', tone: blocked > 0 ? ('danger' as const) : ('ok' as const) },
     ]
   }, [tasks, interns])
 
@@ -120,7 +124,7 @@ export default function AnaliticaPage() {
       />
 
       {/* KPI strip */}
-      <div className="mb-5 grid grid-cols-5 gap-3">
+      <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
         {kpis.map((s) => (
           <div key={s.k} className="rounded-lg border border-paper-line bg-paper-raised p-3.5">
             <div className="text-[11px] text-ink-3">{s.k}</div>
