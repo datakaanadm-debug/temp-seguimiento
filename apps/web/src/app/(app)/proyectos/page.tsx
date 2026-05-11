@@ -53,10 +53,11 @@ export default function ProyectosPage() {
         sub={`${projects.length} proyectos · ${active} activos · ${paused} pausados · ${done} cerrados`}
         right={
           <>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
-              <Icon.Filter size={13} />
-              Filtros
-            </button>
+            {/*
+              Botón "Filtros" removido — no tenía onClick. Para reactivar,
+              construir un dropdown con filter por status (active/paused/
+              completed/archived) usando useQueryState.
+            */}
             <Can capability="create_projects">
               <button
                 type="button"

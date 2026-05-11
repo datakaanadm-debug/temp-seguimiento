@@ -49,11 +49,23 @@ export default function TareasPage() {
     per_page: 100,
   }
 
-  const [syncLabel, setSyncLabel] = useState('hace un momento')
+  // Refresca el "ÚLTIMA SYNC · hace X" relativo cada 30s. Antes había un
+  // setInterval que llamaba setSyncLabel((x) => x) — mismo valor → React
+  // skipea el render y el label nunca cambiaba (bug silencioso). Ahora
+  // guardamos el timestamp del último mount y formateamos a relativo.
+  const [mountedAt] = useState(() => Date.now())
+  const [now, setNow] = useState(Date.now())
   useEffect(() => {
-    const id = setInterval(() => setSyncLabel((x) => x), 30_000)
+    const id = setInterval(() => setNow(Date.now()), 30_000)
     return () => clearInterval(id)
   }, [])
+  const elapsedSec = Math.max(0, Math.floor((now - mountedAt) / 1000))
+  const syncLabel =
+    elapsedSec < 60
+      ? 'hace un momento'
+      : elapsedSec < 3600
+        ? `hace ${Math.floor(elapsedSec / 60)} min`
+        : `hace ${Math.floor(elapsedSec / 3600)} h`
 
   return (
     <div className="mx-auto max-w-[1360px] px-7 py-5 pb-10">

@@ -84,10 +84,11 @@ export default async function DashboardPage() {
         sub={`${activeTasks.length} tareas en curso · ${blockedTasks.length} bloqueos · ${interns.length} practicantes`}
         right={
           <>
-            <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
-              <Icon.Cal size={13} />
-              Hoy
-            </button>
+            {/*
+              Botón "Hoy" removido — era decorativo (sin onClick), inducía
+              al user a clickear esperando filtrar el dashboard por fecha.
+              Si en el futuro se quiere date-range, wirear con useQueryState.
+            */}
             <Link
               href="/tareas/nueva"
               className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"

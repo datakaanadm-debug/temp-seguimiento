@@ -259,7 +259,13 @@ export default function MentoriaPage() {
           )}
 
           {/* History */}
-          <PaperCard title="Historial de sesiones" right={history.length > 3 && <Link href="#" className="text-[12px] text-ink-3 hover:text-ink">Ver todas →</Link>}>
+          {/*
+            "Ver todas →" antes apuntaba a href="#" (link muerto). Removido
+            hasta tener /mentoria/historial?intern_id= (lista paginada).
+            La card ya muestra hasta 3 sesiones; si hay más, el user puede
+            filtrar via la query API directamente o esperar la ruta dedicada.
+          */}
+          <PaperCard title="Historial de sesiones">
             {historyLoading ? (
               <Skeleton className="h-32 w-full" />
             ) : history.length === 0 ? (
