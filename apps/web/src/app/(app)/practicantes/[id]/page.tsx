@@ -14,9 +14,11 @@ import { MentorCard } from '@/features/people/components/mentor-card'
 import { EditProfileDialog } from '@/features/people/components/edit-profile-dialog'
 import { Can } from '@/components/shared/can'
 import { markInternHired } from '@/features/people/api/people'
+import { useAuth } from '@/providers/auth-provider'
 
 export default function PracticantePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const { user } = useAuth()
   const { data: profile, isLoading } = useProfile(id)
   const [editOpen, setEditOpen] = useState(false)
   const qc = useQueryClient()
@@ -104,14 +106,32 @@ export default function PracticantePage({ params }: { params: Promise<{ id: stri
               </div>
             )}
           </div>
-          <Can capability="view_all_interns">
-            <div className="flex flex-col items-end gap-1.5">
-              {profile.hired_at && (
-                <PaperBadge tone="ok" className="!text-[10.5px]">
-                  Contratado · {new Date(profile.hired_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </PaperBadge>
+          <div className="flex flex-col items-end gap-1.5">
+            {profile.hired_at && (
+              <PaperBadge tone="ok" className="!text-[10.5px]">
+                Contratado · {new Date(profile.hired_at).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </PaperBadge>
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              {/*
+                Atajo "Ver bitácoras" — el backend valida en
+                DailyReportController::index() que el actor sea admin/HR, o
+                mentor con asignación activa, o team_lead del intern. Si el
+                role del visitante no aplica, la página destino muestra
+                empty state honesto. Por eso lo dejamos visible para todo
+                visitante distinto al propio dueño del perfil.
+              */}
+              {profile.kind === 'intern' && u?.id && u.id !== user?.id && (
+                <Link
+                  href={`/reportes-diarios?user_id=${u.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft"
+                  title="Ver el historial de bitácoras enviadas por este practicante"
+                >
+                  <Icon.Log size={13} />
+                  Ver bitácoras
+                </Link>
               )}
-              <div className="flex gap-2">
+              <Can capability="view_all_interns">
                 <button
                   type="button"
                   onClick={() => setEditOpen(true)}
@@ -120,6 +140,8 @@ export default function PracticantePage({ params }: { params: Promise<{ id: stri
                   <Icon.Settings size={13} />
                   Editar
                 </button>
+              </Can>
+              <Can capability="view_all_interns">
                 {profile.kind === 'intern' && !profile.hired_at && (
                   <button
                     type="button"
@@ -132,9 +154,9 @@ export default function PracticantePage({ params }: { params: Promise<{ id: stri
                     {hireMutation.isPending ? 'Marcando…' : 'Marcar como contratado'}
                   </button>
                 )}
-              </div>
+              </Can>
             </div>
-          </Can>
+          </div>
         </div>
 
         {profile.bio && (

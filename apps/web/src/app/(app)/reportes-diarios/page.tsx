@@ -2,10 +2,12 @@
 
 import Link from 'next/link'
 import { useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Icon } from '@/components/ui/icon'
 import { SectionTitle, PaperBadge, TonalAvatar } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDailyReports } from '@/features/tracking/hooks/use-daily-report'
+import { useAuth } from '@/providers/auth-provider'
 import { cn } from '@/lib/utils'
 import type { DailyReport } from '@/types/api'
 
@@ -26,27 +28,69 @@ const MOOD_LABEL: Record<string, string> = {
 }
 
 export default function ReportesDiariosPage() {
-  const { data, isLoading } = useDailyReports({ per_page: 50 })
+  const params = useSearchParams()
+  const { user } = useAuth()
+  // ?user_id=X — admin/HR/mentor/lead pueden ver las bitácoras de un intern
+  // específico. El backend valida el permiso (DailyReportController::index
+  // chequea relación mentor/lead activa o role admin/HR). Si el actor no
+  // tiene permiso, el endpoint devuelve 403 y la página queda vacía.
+  const filterUserId = params?.get('user_id') ?? null
+  const isFilteringOther = !!filterUserId && filterUserId !== user?.id
+
+  const { data, isLoading } = useDailyReports({
+    per_page: 50,
+    user_id: filterUserId ?? undefined,
+  })
   const reports = data?.data ?? []
+
+  // Nombre del usuario filtrado (lo extraemos del primer report si existe).
+  const targetUserName = isFilteringOther
+    ? reports[0]?.user?.name ?? reports[0]?.user?.email ?? null
+    : null
 
   const heatmap = useMemo(() => buildHeatmap(reports, 14), [reports])
 
   return (
     <div className="mx-auto max-w-[980px] px-7 py-5 pb-10">
       <SectionTitle
-        kicker="Bitácora"
-        title="Reportes diarios"
-        sub={`${reports.length} entradas · ${reports.filter((r) => r.status === 'submitted').length} enviadas`}
+        kicker={isFilteringOther ? 'Bitácora · vista de equipo' : 'Bitácora'}
+        title={
+          isFilteringOther
+            ? `Bitácoras de ${targetUserName ?? 'practicante'}`
+            : 'Reportes diarios'
+        }
+        sub={
+          isFilteringOther
+            ? `${reports.length} entradas · ${reports.filter((r) => r.status === 'submitted').length} enviadas · ${reports.filter((r) => r.status === 'reviewed').length} revisadas`
+            : `${reports.length} entradas · ${reports.filter((r) => r.status === 'submitted').length} enviadas`
+        }
         right={
-          <Link
-            href="/reportes-diarios/hoy"
-            className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
-          >
-            <Icon.Plus size={13} />
-            Nueva entrada
-          </Link>
+          isFilteringOther ? (
+            <Link
+              href="/reportes-diarios"
+              className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft"
+            >
+              <Icon.Chev size={11} className="rotate-180" />
+              Mis bitácoras
+            </Link>
+          ) : (
+            <Link
+              href="/reportes-diarios/hoy"
+              className="inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+            >
+              <Icon.Plus size={13} />
+              Nueva entrada
+            </Link>
+          )
         }
       />
+
+      {isFilteringOther && (
+        <div className="mb-4 rounded-md border border-paper-line bg-paper-surface p-3 text-[12.5px] text-ink-2">
+          Estás viendo bitácoras de otro usuario. Solo se muestran si tienes rol
+          de mentor asignado, líder del equipo, RRHH o administrador.
+        </div>
+      )}
 
       {/* Heatmap de los últimos 14 días */}
       <div className="mb-4 flex items-center justify-between">
@@ -82,15 +126,19 @@ export default function ReportesDiariosPage() {
       ) : reports.length === 0 ? (
         <div className="rounded-lg border border-dashed border-paper-line bg-paper-surface p-12 text-center">
           <p className="text-[13px] text-ink-3">
-            No hay reportes aún. Escribe el de hoy para empezar.
+            {isFilteringOther
+              ? 'Este practicante no tiene bitácoras enviadas, o no tienes permiso para verlas.'
+              : 'No hay reportes aún. Escribe el de hoy para empezar.'}
           </p>
-          <Link
-            href="/reportes-diarios/hoy"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
-          >
-            <Icon.Plus size={13} />
-            Escribir reporte
-          </Link>
+          {!isFilteringOther && (
+            <Link
+              href="/reportes-diarios/hoy"
+              className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-ink px-3 py-[7px] text-[13px] font-medium text-paper-surface hover:bg-ink-2"
+            >
+              <Icon.Plus size={13} />
+              Escribir reporte
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
