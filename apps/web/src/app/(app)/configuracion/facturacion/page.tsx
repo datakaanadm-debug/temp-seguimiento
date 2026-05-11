@@ -66,12 +66,30 @@ export default function FacturacionPage() {
 
   return (
     <div>
+      {/*
+        Banner honesto: la pantalla entera todavía es mock — planes, uso,
+        facturas y botones de download son hardcoded. Mientras no exista
+        integración Stripe/MercadoPago real, mostrar este aviso para no
+        engañar al admin que cree estar gestionando billing real.
+      */}
+      <div className="mb-4 rounded-md border border-warn/40 bg-warn-soft p-3 text-[12.5px] text-warn-ink">
+        <b>En desarrollo · datos de ejemplo.</b> La gestión de planes y
+        facturación todavía no está conectada a un proveedor de pagos. Los
+        números y botones de esta pantalla son ilustrativos. Para cambios
+        reales de plan, contacta a soporte.
+      </div>
+
       <SectionTitle
         kicker="Workspace"
         title="Facturación"
         sub={`Plan actual: ${currentPlan.toUpperCase()} · siguiente cobro el 1 may 2026`}
         right={
-          <button className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-2 hover:border-paper-line-soft">
+          <button
+            type="button"
+            disabled
+            title="Próximamente — integración Stripe pendiente"
+            className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[7px] text-[12px] text-ink-3 cursor-not-allowed opacity-50"
+          >
             <Icon.Attach size={12} />
             Descargar facturas
           </button>
@@ -163,15 +181,15 @@ export default function FacturacionPage() {
                 ))}
               </ul>
               <button
+                type="button"
+                disabled
+                title={isCurrent ? undefined : 'Próximamente — integración Stripe pendiente'}
                 className={cn(
                   'mt-4 rounded-md px-3 py-1.5 text-[12px] font-medium transition',
                   isCurrent
                     ? 'cursor-default bg-paper-line-soft text-ink-3'
-                    : canDowngrade
-                      ? 'border border-paper-line bg-paper-raised text-ink-2 hover:border-paper-line-soft'
-                      : 'bg-ink text-paper-surface hover:bg-ink-2',
+                    : 'cursor-not-allowed border border-paper-line bg-paper-raised text-ink-3 opacity-50',
                 )}
-                disabled={isCurrent}
               >
                 {isCurrent ? 'Plan activo' : canDowngrade ? 'Bajar de plan' : 'Actualizar'}
               </button>
@@ -211,8 +229,10 @@ export default function FacturacionPage() {
             </span>
             <button
               type="button"
-              className="rounded-md p-1 text-ink-3 hover:bg-paper-bg-2 hover:text-ink"
-              aria-label="Descargar"
+              disabled
+              title="Próximamente — integración Stripe pendiente"
+              className="rounded-md p-1 text-ink-3 opacity-50 cursor-not-allowed"
+              aria-label="Descargar factura (próximamente)"
             >
               <Icon.Download size={12} />
             </button>
