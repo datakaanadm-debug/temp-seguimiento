@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Mentorship\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Identity\Domain\Enums\MembershipRole;
 use App\Modules\Mentorship\Domain\MentorSession;
 use App\Modules\Mentorship\Http\Resources\MentorSessionResource;
 use App\Shared\Tenancy\TenantContext;
@@ -12,15 +13,35 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class MentorSessionController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
+        $this->authorize('viewAny', MentorSession::class);
         $user = $request->user();
         $query = MentorSession::query()
             ->with(['mentor', 'intern'])
             ->orderBy('scheduled_at', 'desc');
+
+        // Scope por rol: admin/HR ven todo; el resto solo sesiones donde
+        // participa (mentor/intern) o donde es team_lead del intern.
+        // Antes esto NO existía → cualquier user del tenant listaba todas
+        // las sesiones (incluso ajenas con notas privadas).
+        $role = $user->primaryRole();
+        if (!in_array($role, [MembershipRole::TenantAdmin, MembershipRole::HR], true)) {
+            $query->where(function ($q) use ($user) {
+                $q->where('mentor_user_id', $user->id)
+                    ->orWhere('intern_user_id', $user->id);
+                $q->orWhereIn('intern_user_id', function ($sub) use ($user) {
+                    $sub->select('tm.user_id')->from('team_memberships as tm')
+                        ->join('teams as t', 't.id', '=', 'tm.team_id')
+                        ->where('t.lead_user_id', $user->id)
+                        ->whereNull('tm.left_at');
+                });
+            });
+        }
 
         if ($request->boolean('mine_as_mentor')) {
             $query->where('mentor_user_id', $user->id);
@@ -50,11 +71,13 @@ class MentorSessionController extends Controller
     public function show(string $id): MentorSessionResource
     {
         $session = MentorSession::with(['mentor', 'intern', 'notes.author'])->findOrFail($id);
+        $this->authorize('view', $session);
         return MentorSessionResource::make($session);
     }
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', MentorSession::class);
         $data = $request->validate([
             'mentor_user_id' => ['required', 'uuid'],
             'intern_user_id' => ['required', 'uuid'],
@@ -88,6 +111,7 @@ class MentorSessionController extends Controller
     public function update(Request $request, string $id): MentorSessionResource
     {
         $session = MentorSession::findOrFail($id);
+        $this->authorize('update', $session);
 
         $data = $request->validate([
             'scheduled_at' => ['nullable', 'date'],
@@ -116,6 +140,7 @@ class MentorSessionController extends Controller
     public function destroy(string $id): JsonResponse
     {
         $session = MentorSession::findOrFail($id);
+        $this->authorize('delete', $session);
         $session->delete();
 
         return response()->json(['ok' => true]);
