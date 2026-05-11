@@ -49,12 +49,47 @@ final class FakeLlmClient implements LlmClient
 
     private function dailySummary(string $userInput): string
     {
-        $snippet = mb_substr(trim($userInput), 0, 240);
+        // ANTES echaba `$userInput` (que es el prompt completo con el JSON crudo
+        // del reporte) como bullet — exponía el payload técnico al usuario en la
+        // UI de /ia. Ahora generamos un stub determinístico que NO refleja el
+        // input, solo confirma que el flow funciona.
+        //
+        // Extraemos solo `avances` del JSON si está disponible para hacer el
+        // stub un poco contextual, sin dumpear todo el prompt.
+        $avances = $this->extractField($userInput, 'avances');
+        $emocional = $this->extractField($userInput, 'estado_emocional');
+
+        $bullets = [];
+        $bullets[] = $avances !== ''
+            ? "Trabajaste en: " . mb_substr($avances, 0, 120)
+            : 'Sin avances registrados hoy.';
+        $bullets[] = 'Sin bloqueos reportados.';
+        $bullets[] = 'El siguiente paso es continuar con las tareas planificadas.';
+
+        $tono = match ($emocional) {
+            'great', 'good' => 'positivo',
+            'stressed' => 'preocupado · revisar carga',
+            'blocked' => 'frustrado · escalar bloqueos',
+            default => 'equilibrado',
+        };
+
         return "Resumen del día (modo desarrollo):\n\n"
-            . "• " . ($snippet !== '' ? $snippet : 'Sin avances registrados hoy.') . "\n"
-            . "• Sin bloqueos reportados.\n"
-            . "• El siguiente paso es continuar con las tareas planificadas.\n\n"
-            . "Tono: equilibrado. Para resúmenes reales configura ANTHROPIC_API_KEY en el .env.";
+            . "• " . $bullets[0] . "\n"
+            . "• " . $bullets[1] . "\n"
+            . "• " . $bullets[2] . "\n\n"
+            . "Tono: {$tono}. Configura ANTHROPIC_API_KEY en el .env para resúmenes con IA real.";
+    }
+
+    /**
+     * Extrae el valor de un campo JSON del prompt sin parsear todo. Heurística
+     * suficiente para el FakeLlmClient — en prod la IA real recibe estructura.
+     */
+    private function extractField(string $haystack, string $field): string
+    {
+        if (preg_match('/"' . preg_quote($field, '/') . '"\s*:\s*"([^"]*)"/', $haystack, $m)) {
+            return trim($m[1]);
+        }
+        return '';
     }
 
     private function evaluationNarrative(string $userInput): string

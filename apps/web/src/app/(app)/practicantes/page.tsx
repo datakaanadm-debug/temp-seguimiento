@@ -52,7 +52,7 @@ export default function PracticantesPage() {
         sub={
           isLoading
             ? 'Cargando…'
-            : `${stats.total} totales · ${stats.interns} practicantes · ${stats.mentors} mentores`
+            : `${stats.total} ${stats.total === 1 ? 'total' : 'totales'} · ${stats.interns} ${stats.interns === 1 ? 'practicante' : 'practicantes'} · ${stats.mentors} ${stats.mentors === 1 ? 'mentor' : 'mentores'}`
         }
         right={
           <Can capability="invite_users">
