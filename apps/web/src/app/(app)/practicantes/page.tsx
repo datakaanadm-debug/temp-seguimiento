@@ -26,13 +26,16 @@ export default function PracticantesPage() {
   const [kind, setKind] = useQueryState('kind', parseAsString)
   const [inviteOpen, setInviteOpen] = useState(false)
 
-  if (!allowed) return null
-
+  // Todos los hooks antes del early return — si useProfiles va después,
+  // React crashea cuando allowed pasa de false a true (rendered more hooks).
   const { data, isLoading } = useProfiles({
     q: q || undefined,
     kind: kind ?? undefined,
     per_page: 50,
   })
+
+  if (!allowed) return null
+
   const profiles = data?.data ?? []
 
   const stats = {

@@ -31,11 +31,13 @@ export default function AnaliticaPage() {
     }),
   })
 
-  if (!allowed) return null
-
   const tasks = tasksData?.data ?? []
   const interns = internsData?.data ?? []
 
+  // IMPORTANTE: TODOS los hooks deben ejecutarse antes del early return.
+  // Si `if (!allowed) return null` va antes de los useMemo, cuando `allowed`
+  // cambia false→true (al resolver useAuth) React lanza "Rendered more hooks
+  // than during the previous render" y crashea la página.
   const kpis = useMemo(() => {
     const total = tasks.length
     const done = tasks.filter((t) => t.state === 'DONE').length
@@ -88,6 +90,9 @@ export default function AnaliticaPage() {
       .filter((u) => u.risk !== 'ok')
       .slice(0, 8)
   }, [interns])
+
+  // Early return DESPUÉS de todos los hooks.
+  if (!allowed) return null
 
   return (
     <div className="mx-auto max-w-[1360px] px-7 py-5 pb-10">

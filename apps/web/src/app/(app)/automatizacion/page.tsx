@@ -96,10 +96,10 @@ export default function AutomatizacionPage() {
     queryKey: ['automation-rules'],
     queryFn: listAutomationRules,
   })
-  if (!allowed) return null
-  const rules = data?.data ?? []
-  const meta = data?.meta ?? { total: 0, active: 0, runs_this_month: 0 }
 
+  // Todos los hooks ANTES del early return — si useMutation va después de
+  // `if (!allowed) return null`, el conteo de hooks cambia cuando allowed
+  // pasa de false a true y React crashea la página.
   const toggle = useMutation({
     mutationFn: toggleAutomationRule,
     onSuccess: () => {
@@ -107,6 +107,10 @@ export default function AutomatizacionPage() {
     },
     onError: (e: any) => toast.error(e?.message ?? 'No se pudo actualizar la regla'),
   })
+
+  if (!allowed) return null
+  const rules = data?.data ?? []
+  const meta = data?.meta ?? { total: 0, active: 0, runs_this_month: 0 }
 
   return (
     <div className="mx-auto max-w-[1100px] px-7 py-5 pb-10">
