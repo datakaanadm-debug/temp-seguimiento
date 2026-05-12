@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Tenant, User } from '@/types/api'
 
@@ -25,11 +25,20 @@ export function AuthProvider({
   const router = useRouter()
   const [user, setUser] = useState<User | null>(initialUser)
   const [tenant, setTenant] = useState<Tenant | null>(initialTenant)
+  // Una vez disparado el redirect, ignoramos otros 401 hasta que la URL cambie.
+  // Sin esto, varias requests en paralelo (notifications, presence, heartbeat)
+  // disparan N redirects y N re-renders con user=null.
+  const redirectingRef = useRef(false)
 
   useEffect(() => {
     const onUnauthorized = () => {
-      setUser(null)
-      router.push('/login')
+      if (redirectingRef.current) return
+      redirectingRef.current = true
+      // No seteamos user=null acá. Los componentes downstream que llaman
+      // useCurrentUser() seguirían reading el user "viejo" hasta que la
+      // navegación a /login desmonte el árbol — evita pantallazo blanco
+      // por throw en el medio del redirect.
+      router.replace('/login')
     }
     window.addEventListener('auth:unauthorized', onUnauthorized)
     return () => window.removeEventListener('auth:unauthorized', onUnauthorized)
