@@ -38,20 +38,24 @@ cmds = [
 ]
 
 [phases.build]
-# Cachea config/routes/views para arranque rápido en producción.
-# Si APP_KEY no está set Laravel falla — asegurate de tener APP_KEY en
-# las env vars de Railway antes del primer deploy (php artisan key:generate
-# corre local y copiás el output).
+# Cachea routes/views (no dependen de runtime envs).
+#
+# IMPORTANTE: NO cacheamos config en build porque Railway no garantiza
+# que las env vars (APP_KEY, SESSION_*, DB_*, SANCTUM_*) estén disponibles
+# en build phase. Si cacheás acá con envs faltantes/default, el deploy
+# corre con SESSION_SAME_SITE=lax y SECURE=null por toda la vida del
+# container → cookies cross-site no se setean → 419 eterno.
+# config:cache se mueve al start command (ver abajo).
 cmds = [
-  "php artisan config:cache",
   "php artisan route:cache",
   "php artisan view:cache",
-  # Reafirma permisos después del cache para el user de runtime
   "chmod -R 0775 bootstrap/cache storage",
 ]
 
 [start]
-# Migra y arranca el web. `php -S` es el server built-in — suficiente para
-# 1 tenant / pocos users. Cuando crezcas, considera switchear a FrankenPHP
-# o php-fpm + nginx custom Dockerfile.
-cmd = "php artisan migrate --force && php -S 0.0.0.0:$PORT -t public"
+# Orden de boot:
+#   1. config:clear → tira el cache si quedó algo de un deploy anterior
+#   2. config:cache → re-cachea con las envs runtime YA disponibles
+#   3. migrate     → corre migrations (idempotente)
+#   4. php -S      → arranca el server built-in
+cmd = "php artisan config:clear && php artisan config:cache && php artisan migrate --force && php -S 0.0.0.0:$PORT -t public"
