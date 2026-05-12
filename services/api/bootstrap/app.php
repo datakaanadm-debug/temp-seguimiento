@@ -20,6 +20,20 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.member' => \App\Http\Middleware\EnsureUserBelongsToTenant::class,
         ]);
 
+        // Railway / Vercel / cualquier PaaS hace TLS termination en un proxy
+        // upstream y forwardea HTTP a la app. Sin trustProxies Laravel piensa
+        // que la request es insecure, no setea cookies Secure (XSRF-TOKEN y
+        // session quedan vacías en el browser cross-site) y devolvemos 419 en
+        // el siguiente POST. `at: '*'` confía en todos los hops porque las IPs
+        // del proxy de Railway no son estables.
+        $middleware->trustProxies(at: '*', headers:
+            \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR
+            | \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST
+            | \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT
+            | \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO
+            | \Illuminate\Http\Request::HEADER_X_FORWARDED_AWS_ELB,
+        );
+
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         // Inyecta `_awarded_badges` en JSON cuando un listener otorgó badges
         // durante este request (gamification engine).
