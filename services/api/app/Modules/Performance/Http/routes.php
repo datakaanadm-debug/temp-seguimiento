@@ -20,4 +20,14 @@ Route::middleware(['tenant', 'auth:sanctum', 'tenant.member'])->group(function (
         ->name('evaluations.submit');
     Route::post('/evaluations/{evaluation}/acknowledge', [EvaluationController::class, 'acknowledge'])
         ->name('evaluations.acknowledge');
+
+    // Lifecycle adicional (M11 fase 2 — UI para gaps que estaban solo en dominio)
+    Route::post('/evaluations/{evaluation}/dispute', [EvaluationController::class, 'dispute'])
+        ->name('evaluations.dispute');
+    Route::post('/evaluations/{evaluation}/resolve', [EvaluationController::class, 'resolve'])
+        ->name('evaluations.resolve');
+    Route::post('/evaluations/{evaluation}/cancel', [EvaluationController::class, 'cancel'])
+        ->name('evaluations.cancel');
+    Route::patch('/evaluations/{evaluation}/assign', [EvaluationController::class, 'assign'])
+        ->name('evaluations.assign');
 });

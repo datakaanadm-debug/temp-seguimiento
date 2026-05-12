@@ -6,6 +6,7 @@ namespace App\Modules\Performance\Http\Controllers;
 
 use App\Modules\Performance\Application\Commands\CreateScorecard;
 use App\Modules\Performance\Application\Commands\CreateScorecardHandler;
+use App\Modules\Performance\Application\Commands\UpdateScorecardWithMetricsHandler;
 use App\Modules\Performance\Domain\Scorecard;
 use App\Modules\Performance\Http\Requests\CreateScorecardRequest;
 use App\Modules\Performance\Http\Resources\ScorecardResource;
@@ -17,6 +18,7 @@ final class ScorecardController extends Controller
 {
     public function __construct(
         private readonly CreateScorecardHandler $createHandler,
+        private readonly UpdateScorecardWithMetricsHandler $updateHandler,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -69,12 +71,25 @@ final class ScorecardController extends Controller
             'name' => ['sometimes', 'string', 'min:2', 'max:150'],
             'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'is_active' => ['sometimes', 'boolean'],
+            // Métricas opcionales: si se pasan, se reemplazan via upsert por `key`
+            // (las que mantienen el key conservan su id y por ende las responses
+            // existentes; las que desaparecen se borran).
+            'metrics' => ['sometimes', 'array', 'min:1', 'max:30'],
+            'metrics.*.key' => ['required_with:metrics', 'string', 'max:60', 'regex:/^[a-z][a-z0-9_]*$/'],
+            'metrics.*.label' => ['required_with:metrics', 'string', 'max:150'],
+            'metrics.*.type' => ['required_with:metrics', 'string', 'in:auto,manual,likert,rubric'],
+            'metrics.*.source' => ['sometimes', 'nullable', 'string', 'max:60'],
+            'metrics.*.target_value' => ['sometimes', 'nullable', 'numeric'],
+            'metrics.*.unit' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'metrics.*.weight' => ['sometimes', 'numeric', 'min:0.01', 'max:10'],
+            'metrics.*.config' => ['sometimes', 'array'],
+            'metrics.*.position' => ['sometimes', 'integer', 'min:0'],
         ]);
-        $scorecard->fill($validated);
-        $scorecard->save();
+
+        $updated = $this->updateHandler->handle($scorecard->id, $validated);
 
         return response()->json([
-            'data' => ScorecardResource::make($scorecard->fresh('metrics'))->resolve(),
+            'data' => ScorecardResource::make($updated)->resolve(),
         ]);
     }
 

@@ -23,4 +23,14 @@ final class InvalidEvaluationTransition extends DomainException
     {
         return new self("Only the subject can acknowledge the evaluation.");
     }
+
+    public static function onlySubjectDisputes(): self
+    {
+        return new self("Only the subject can dispute their evaluation.");
+    }
+
+    public static function evaluatorAlreadyStarted(): self
+    {
+        return new self("Cannot reassign evaluator once the evaluation has been submitted.");
+    }
 }

@@ -6,6 +6,14 @@ namespace App\Modules\Performance\Http\Controllers;
 
 use App\Modules\Performance\Application\Commands\AcknowledgeEvaluation;
 use App\Modules\Performance\Application\Commands\AcknowledgeEvaluationHandler;
+use App\Modules\Performance\Application\Commands\AssignEvaluator;
+use App\Modules\Performance\Application\Commands\AssignEvaluatorHandler;
+use App\Modules\Performance\Application\Commands\CancelEvaluation;
+use App\Modules\Performance\Application\Commands\CancelEvaluationHandler;
+use App\Modules\Performance\Application\Commands\DisputeEvaluation;
+use App\Modules\Performance\Application\Commands\DisputeEvaluationHandler;
+use App\Modules\Performance\Application\Commands\ResolveDispute;
+use App\Modules\Performance\Application\Commands\ResolveDisputeHandler;
 use App\Modules\Performance\Application\Commands\SaveEvaluationResponses;
 use App\Modules\Performance\Application\Commands\SaveEvaluationResponsesHandler;
 use App\Modules\Performance\Application\Commands\ScheduleEvaluation;
@@ -29,6 +37,10 @@ final class EvaluationController extends Controller
         private readonly SaveEvaluationResponsesHandler $saveHandler,
         private readonly SubmitEvaluationHandler $submitHandler,
         private readonly AcknowledgeEvaluationHandler $ackHandler,
+        private readonly DisputeEvaluationHandler $disputeHandler,
+        private readonly ResolveDisputeHandler $resolveHandler,
+        private readonly CancelEvaluationHandler $cancelHandler,
+        private readonly AssignEvaluatorHandler $assignHandler,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -151,6 +163,115 @@ final class EvaluationController extends Controller
 
         return response()->json([
             'data' => EvaluationResource::make($acked)->resolve(),
+        ]);
+    }
+
+    /**
+     * POST /evaluations/{id}/dispute
+     * Body: { reason?: string }
+     * Sólo el sujeto evaluado puede disputar, y sólo en estado SUBMITTED.
+     */
+    public function dispute(Evaluation $evaluation, Request $request): JsonResponse
+    {
+        $this->authorize('dispute', $evaluation);
+
+        $reason = $request->input('reason');
+        if (is_string($reason)) {
+            $request->validate(['reason' => ['nullable', 'string', 'max:2000']]);
+        }
+
+        try {
+            $disputed = $this->disputeHandler->handle(new DisputeEvaluation(
+                evaluationId: $evaluation->id,
+                subject: $request->user(),
+                reason: is_string($reason) ? trim($reason) : null,
+            ));
+        } catch (InvalidEvaluationTransition $e) {
+            throw ValidationException::withMessages(['status' => $e->getMessage()]);
+        }
+
+        return response()->json([
+            'data' => EvaluationResource::make($disputed)->resolve(),
+        ]);
+    }
+
+    /**
+     * POST /evaluations/{id}/resolve
+     * Body: { resolution?: string }
+     * Admin/HR cierra la disputa con una nota de resolución.
+     */
+    public function resolve(Evaluation $evaluation, Request $request): JsonResponse
+    {
+        $this->authorize('resolve', $evaluation);
+
+        $request->validate(['resolution' => ['nullable', 'string', 'max:2000']]);
+
+        try {
+            $resolved = $this->resolveHandler->handle(new ResolveDispute(
+                evaluationId: $evaluation->id,
+                resolver: $request->user(),
+                resolution: $request->input('resolution') ?: null,
+            ));
+        } catch (InvalidEvaluationTransition $e) {
+            throw ValidationException::withMessages(['status' => $e->getMessage()]);
+        }
+
+        return response()->json([
+            'data' => EvaluationResource::make($resolved)->resolve(),
+        ]);
+    }
+
+    /**
+     * POST /evaluations/{id}/cancel
+     * Body: { reason?: string }
+     * Sólo válido en SCHEDULED o IN_PROGRESS.
+     */
+    public function cancel(Evaluation $evaluation, Request $request): JsonResponse
+    {
+        $this->authorize('cancel', $evaluation);
+
+        $request->validate(['reason' => ['nullable', 'string', 'max:2000']]);
+
+        try {
+            $cancelled = $this->cancelHandler->handle(new CancelEvaluation(
+                evaluationId: $evaluation->id,
+                actor: $request->user(),
+                reason: $request->input('reason') ?: null,
+            ));
+        } catch (InvalidEvaluationTransition $e) {
+            throw ValidationException::withMessages(['status' => $e->getMessage()]);
+        }
+
+        return response()->json([
+            'data' => EvaluationResource::make($cancelled)->resolve(),
+        ]);
+    }
+
+    /**
+     * PATCH /evaluations/{id}/assign
+     * Body: { evaluator_user_id: string|null }
+     * Reasigna (o desasigna con null) el evaluador antes de enviar.
+     */
+    public function assign(Evaluation $evaluation, Request $request): JsonResponse
+    {
+        $this->authorize('assign', $evaluation);
+
+        $validated = $request->validate([
+            'evaluator_user_id' => ['nullable', 'string', 'uuid'],
+        ]);
+
+        try {
+            $updated = $this->assignHandler->handle(new AssignEvaluator(
+                evaluationId: $evaluation->id,
+                actor: $request->user(),
+                evaluatorUserId: $validated['evaluator_user_id'] ?? null,
+            ));
+        } catch (InvalidEvaluationTransition $e) {
+            throw ValidationException::withMessages(['evaluator_user_id' => $e->getMessage()]);
+        }
+
+        return response()->json([
+            'data' => EvaluationResource::make($updated)->resolve(),
         ]);
     }
 }
