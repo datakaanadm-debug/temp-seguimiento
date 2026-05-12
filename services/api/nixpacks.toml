@@ -1,0 +1,50 @@
+# Nixpacks build config para Railway — Senda API (Laravel 11 + PostgreSQL).
+#
+# Por defecto Railpack detecta el package.json raíz del monorepo y trata el
+# proyecto como Node. Este archivo + setear "Root Directory = services/api"
+# en el servicio de Railway hacen que se construya correctamente como PHP.
+#
+# Tres servicios separados en Railway leen este mismo repo (todos con
+# Root Directory = services/api), cambian solo el `start` command:
+#   - api    → php-fpm sirviendo public/ (este default)
+#   - queue  → override start = "php artisan queue:work --tries=2 --max-time=3600"
+#   - reverb → override start = "php artisan reverb:start --host=0.0.0.0 --port=$PORT"
+
+[phases.setup]
+nixPkgs = [
+  "php82",
+  "php82Packages.composer",
+  # Extensiones PHP necesarias por Laravel + nuestro stack
+  "php82Extensions.pdo_pgsql",
+  "php82Extensions.pgsql",
+  "php82Extensions.mbstring",
+  "php82Extensions.xml",
+  "php82Extensions.curl",
+  "php82Extensions.bcmath",
+  "php82Extensions.intl",
+  "php82Extensions.gd",
+  "php82Extensions.zip",
+  "php82Extensions.opcache",
+]
+
+[phases.install]
+cmds = [
+  "composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist",
+]
+
+[phases.build]
+# Cachea config/routes/views para arranque rápido en producción.
+# Si APP_KEY no está set Laravel falla — asegurate de tener APP_KEY en
+# las env vars de Railway antes del primer deploy (php artisan key:generate
+# corre local y copiás el output).
+cmds = [
+  "php artisan config:cache",
+  "php artisan route:cache",
+  "php artisan view:cache",
+]
+
+[start]
+# Migra y arranca el web. `php -S` es el server built-in — suficiente para
+# 1 tenant / pocos users. Cuando crezcas, considera switchear a FrankenPHP
+# o php-fpm + nginx custom Dockerfile.
+cmd = "php artisan migrate --force && php -S 0.0.0.0:$PORT -t public"
