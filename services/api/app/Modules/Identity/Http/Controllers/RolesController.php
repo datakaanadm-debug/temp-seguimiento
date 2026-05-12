@@ -63,7 +63,7 @@ class RolesController extends Controller
     private const PERMISSIONS = [
         ['cap' => 'Invitar usuarios',          'roles' => ['tenant_admin', 'hr', 'team_lead']],
         ['cap' => 'Ver todos los practicantes', 'roles' => ['tenant_admin', 'hr']],
-        ['cap' => 'Crear evaluaciones',        'roles' => ['tenant_admin', 'hr', 'team_lead']],
+        ['cap' => 'Crear evaluaciones',        'roles' => ['tenant_admin', 'hr', 'team_lead', 'mentor']],
         ['cap' => 'Notas privadas de mentoría', 'roles' => ['mentor']],
         ['cap' => 'Crear automatizaciones',    'roles' => ['tenant_admin', 'hr']],
         ['cap' => 'Ver analítica global',      'roles' => ['tenant_admin', 'hr']],

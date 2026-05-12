@@ -23,13 +23,14 @@ export type Capability =
   | 'manage_onboarding_template'
   | 'manage_scorecards'
   | 'resolve_disputes'
+  | 'assign_evaluator'
   | 'upload_attachments'
 
 export const CAPABILITY_MATRIX: Record<Capability, MembershipRole[]> = {
   // Supervisor es un rol read-only: ve analítica/dashboards/reportes pero no crea nada.
   invite_users: ['tenant_admin', 'hr', 'team_lead'],
   view_all_interns: ['tenant_admin', 'hr', 'supervisor'],
-  create_evaluations: ['tenant_admin', 'hr', 'team_lead'],
+  create_evaluations: ['tenant_admin', 'hr', 'team_lead', 'mentor'],
   mentor_private_notes: ['mentor'],
   create_automations: ['tenant_admin', 'hr'],
   view_global_analytics: ['tenant_admin', 'hr', 'team_lead', 'supervisor'],
@@ -46,6 +47,10 @@ export const CAPABILITY_MATRIX: Record<Capability, MembershipRole[]> = {
   // Mismo set que el backend EvaluationPolicy::resolve — TeamLead no tiene
   // autoridad porque la disputa puede ser contra ellos (conflicto de interés).
   resolve_disputes: ['tenant_admin', 'hr'],
+  // Asignar evaluador a una evaluación que otro programó. Mentor crea las
+  // suyas (con evaluator=él mismo o vacío), pero no reasigna las ajenas.
+  // Mismo set que EvaluationPolicy::assign en backend.
+  assign_evaluator: ['tenant_admin', 'hr', 'team_lead'],
   upload_attachments: ['tenant_admin', 'hr', 'team_lead', 'mentor', 'intern'],
 }
 

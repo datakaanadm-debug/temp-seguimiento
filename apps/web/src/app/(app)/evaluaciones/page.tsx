@@ -42,9 +42,10 @@ export default function EvaluacionesPage() {
   const [newQuery, setNewQuery] = useQueryState('new', parseAsBoolean)
   const [newOpen, setNewOpen] = useState(false)
   const [assignTarget, setAssignTarget] = useState<Evaluation | null>(null)
-  // create_evaluations cubre el mismo set de roles autorizados para asignar
-  // (Admin/HR/TeamLead). Reusamos esa capability en lugar de inventar otra.
-  const canAssign = useCan('create_evaluations')
+  // Asignar/reasignar evaluador es un set más restringido que crear (mentor
+  // crea sus propias evaluaciones pero no reasigna las de otros). Mismo set
+  // que EvaluationPolicy::assign en backend → 403 si no matchea.
+  const canAssign = useCan('assign_evaluator')
 
   // Si el user entra con ?new=true (link viejo o desde tour), abrir el dialog.
   // Luego limpiamos el query param para que el back-button no re-abra.

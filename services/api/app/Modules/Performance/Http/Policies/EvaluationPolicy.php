@@ -35,10 +35,15 @@ final class EvaluationPolicy
 
     public function create(User $user): bool
     {
+        // Mentor puede programar evaluaciones para los practicantes que mentora
+        // (típicamente ad-hoc o de cierre de sprint). El alcance per-sujeto lo
+        // controla el `subject_user_id` que el mentor mande — el form del front
+        // ya filtra dropdown de subjects a sus practicantes asignados.
         return in_array($user->primaryRole(), [
             MembershipRole::TenantAdmin,
             MembershipRole::HR,
             MembershipRole::TeamLead,
+            MembershipRole::Mentor,
         ], true);
     }
 
