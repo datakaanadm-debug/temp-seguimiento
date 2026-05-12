@@ -94,7 +94,12 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => 'prefer',
+            // sslmode: 'prefer' local, 'require' para NeonDB / managed Postgres.
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // pg_options: string libpq-style appendeado al DSN por
+            // NeonPostgresConnector. Usado para SNI workaround de NeonDB:
+            // PG_OPTIONS="endpoint=ep-XXX". Vacío para Postgres local.
+            'pg_options' => env('PG_OPTIONS'),
             // Forzamos UTC en la sesión de Postgres para evitar el bug de
             // doble conversión: si la session TZ es la del SO (ej. Mexico
             // City) y Laravel envía `now()` en UTC sin offset, postgres lo

@@ -17,6 +17,17 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // NeonDB SNI workaround: PHP libpq < 13 (Windows PHP 8.2 trae 11.4)
+        // no envía SNI durante el TLS handshake, y NeonDB usa el hostname
+        // para routear al endpoint correcto del compute. Sin eso tira:
+        //   "Endpoint ID is not specified. ... pass the endpoint ID as a
+        //    parameter: '?options=endpoint=<endpoint-id>'"
+        // putenv('PGOPTIONS=...') no se propaga a libpq en Windows, así que
+        // sobreescribimos el connector pgsql por uno que appendea
+        // `options=endpoint=...` directamente al DSN de PDO. El valor sale
+        // del config key `pg_options` (database.php → env PG_OPTIONS).
+        $this->app->bind('db.connector.pgsql', \App\Database\NeonPostgresConnector::class);
+
         // Binding del LLM client según config('ai.provider') y disponibilidad de API key.
         // Si no hay ANTHROPIC_API_KEY configurada, caemos a FakeLlmClient para dev local.
         // Una instancia POR REQUEST. Acumula awards otorgadas durante el
