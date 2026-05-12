@@ -60,16 +60,28 @@ class AppServiceProvider extends ServiceProvider
         // y todos los GETs subsequentes (notifications, presence,
         // unread-count) reciben 401 porque la cookie no llega.
         //
-        // Triggers cuando APP_URL es HTTPS (más robusto que app()->env() —
-        // si APP_ENV no está seteado o vale 'local' por error en Railway,
-        // el check basado en APP_URL sigue protegiéndonos).
+        // Detección triple-redundante de "estamos en producción HTTPS":
+        //   1. La request actual es HTTPS (con trustProxies aplicado, esto
+        //      lee X-Forwarded-Proto: https que Railway envía).
+        //   2. El host actual termina en .datakaan.com (cubre el caso de
+        //      Railway sin X-Forwarded-Proto seteado).
+        //   3. APP_URL empieza con https:// (cubre console commands sin
+        //      request: queue:work, schedule:run).
         //
-        // Hardcodeamos session.domain en lugar de leer env() porque después
-        // del config:cache las llamadas a env() retornan null fuera de los
-        // archivos de config. El dominio del producto está fijo y vale más
-        // que la cookie nunca quede mal seteada por una env vacía.
-        $appUrl = (string) config('app.url');
-        if (str_starts_with($appUrl, 'https://')) {
+        // Si CUALQUIERA matchea, aplica overrides. Inmune a config:cache
+        // stale, APP_ENV mal seteado, env vacías, lo que sea.
+        $request = $this->app->bound('request') ? $this->app['request'] : null;
+        $isHttps = false;
+        if ($request) {
+            $isHttps = $request->isSecure()
+                || $request->server('HTTP_X_FORWARDED_PROTO') === 'https'
+                || str_ends_with((string) $request->getHost(), '.datakaan.com');
+        }
+        if (!$isHttps) {
+            $isHttps = str_starts_with((string) config('app.url'), 'https://');
+        }
+
+        if ($isHttps) {
             config([
                 'session.same_site' => 'none',
                 'session.secure' => true,
