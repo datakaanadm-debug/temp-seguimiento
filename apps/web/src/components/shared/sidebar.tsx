@@ -150,6 +150,34 @@ export function Sidebar() {
             )
           })}
         </ul>
+
+        {/* Sección "Recursos" — separada visualmente de los módulos operativos
+            porque no es algo que se opere, es referencia. */}
+        <div className={cn('mt-5 border-t border-paper-line-soft pt-3', collapsed && 'pt-3')}>
+          {!collapsed && (
+            <div className="mb-1 px-2.5 font-mono text-[10px] uppercase tracking-[0.5px] text-ink-muted">
+              Recursos
+            </div>
+          )}
+          <ul className="space-y-0.5">
+            <li>
+              <Link
+                href="/guia"
+                className={cn(
+                  'group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors',
+                  pathname === '/guia' || pathname.startsWith('/guia/')
+                    ? 'bg-primary-soft text-primary-ink font-medium'
+                    : 'text-ink-2 hover:bg-paper-bg-2',
+                  collapsed && 'justify-center px-0',
+                )}
+                title="Guía operativa"
+              >
+                <Icon.Book size={15} className="shrink-0" />
+                {!collapsed && <span className="truncate">Guía</span>}
+              </Link>
+            </li>
+          </ul>
+        </div>
       </nav>
 
       {/* User chip at bottom */}

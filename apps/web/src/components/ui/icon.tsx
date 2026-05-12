@@ -191,6 +191,12 @@ export const Icon = {
       <path d="M12 3v12M7 10l5 5 5-5M4 21h16" />
     </Base>
   ),
+  Book: (p: IconProps) => (
+    <Base {...p}>
+      <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5v-17z" />
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    </Base>
+  ),
 }
 
 export type IconName = keyof typeof Icon
