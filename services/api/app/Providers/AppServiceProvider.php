@@ -11,6 +11,7 @@ use App\Modules\AI\Infrastructure\Clients\FakeLlmClient;
 use App\Modules\Gamification\Application\RecentAwardsCollector;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -51,6 +52,33 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // ── Producción: forzar flags de session/cookie ─────────────────────
+        //
+        // Sin esto la cookie de session devuelta post-login viaja con
+        // SameSite=Lax (default Laravel), que el browser bloquea en cross-
+        // origin XHR/fetch — incluso entre subdominios del mismo apex —
+        // y todos los GETs subsequentes (notifications, presence,
+        // unread-count) reciben 401 porque la cookie no llega.
+        //
+        // Hacemos el override en código (no env) para que sea immune al
+        // config:cache stale: si `php artisan config:cache` corrió en build
+        // phase con envs vacías, las envs runtime se ignoran de todas formas
+        // — pero este boot() corre en CADA request y aplica los valores
+        // correctos al runtime config.
+        if (app()->environment('production')) {
+            config([
+                'session.same_site' => 'none',
+                'session.secure' => true,
+                'session.domain' => env('SESSION_DOMAIN', '.datakaan.com'),
+                'session.http_only' => true,
+            ]);
+
+            // Asegura que url() y route() generen https:// (Railway termina
+            // TLS upstream — sin esto Laravel ve la request como http y
+            // genera URLs con http://, rompiendo emails y redirects).
+            URL::forceScheme('https');
+        }
+
         Event::listen(MessageSending::class, AddGlobalReplyTo::class);
 
         // Event → Listener bindings (Laravel 11 manual registration).
