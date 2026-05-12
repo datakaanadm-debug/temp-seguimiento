@@ -29,6 +29,11 @@ nixPkgs = [
 
 [phases.install]
 cmds = [
+  # bootstrap/cache puede no existir en el clone (el .gitignore parent solo
+  # versiona el .gitkeep). PackageManifest::write() necesita que exista y
+  # sea writable o el primer request muere con HTTP 500.
+  "mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs storage/app/private",
+  "chmod -R 0775 bootstrap/cache storage",
   "composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist",
 ]
 
@@ -41,6 +46,8 @@ cmds = [
   "php artisan config:cache",
   "php artisan route:cache",
   "php artisan view:cache",
+  # Reafirma permisos después del cache para el user de runtime
+  "chmod -R 0775 bootstrap/cache storage",
 ]
 
 [start]
