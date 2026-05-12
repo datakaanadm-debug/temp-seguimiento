@@ -9,10 +9,13 @@ import {
 } from '@/components/ui/primitives'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCurrentUser } from '@/providers/auth-provider'
+import { useCan } from '@/hooks/use-can'
 import { cn } from '@/lib/utils'
 import {
-  useAcknowledgeEvaluation, useEvaluation, useSaveResponses, useSubmitEvaluation,
+  useAcknowledgeEvaluation, useCancelEvaluation, useDisputeEvaluation,
+  useEvaluation, useResolveEvaluation, useSaveResponses, useSubmitEvaluation,
 } from '../hooks/use-evaluations'
+import { ReasonDialog } from './reason-dialog'
 import { apiClient } from '@/lib/api-client'
 import type { EvaluationStatus, ScorecardMetric } from '@/types/api'
 
@@ -31,12 +34,20 @@ export function EvaluationEditor({ id }: { id: string }) {
   const save = useSaveResponses(id)
   const submit = useSubmitEvaluation(id)
   const ack = useAcknowledgeEvaluation(id)
+  const dispute = useDisputeEvaluation(id)
+  const resolve = useResolveEvaluation(id)
+  const cancel = useCancelEvaluation(id)
   const me = useCurrentUser()
+  const canResolve = useCan('resolve_disputes')
+  const canCancel = useCan('create_evaluations')
 
   const [responses, setResponses] = useState<Record<string, number | string>>({})
   const [narrative, setNarrative] = useState('')
   const [overallScore, setOverallScore] = useState<number | ''>('')
   const [draftingNarrative, setDraftingNarrative] = useState(false)
+  const [disputeOpen, setDisputeOpen] = useState(false)
+  const [resolveOpen, setResolveOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
 
   useEffect(() => {
     if (!evaluation) return
@@ -78,6 +89,15 @@ export function EvaluationEditor({ id }: { id: string }) {
   const isEvaluator = evaluation.evaluator_user_id === me.id || !evaluation.evaluator_user_id
   const writable = ['SCHEDULED', 'IN_PROGRESS'].includes(evaluation.status) && isEvaluator && !isSubject
   const canAck = evaluation.status === 'SUBMITTED' && isSubject
+  // Disputar: el sujeto la vio enviada y no está de acuerdo.
+  const canDispute = evaluation.status === 'SUBMITTED' && isSubject
+  // Resolver: cualquier Admin/HR puede cerrar la disputa con una nota.
+  const canResolveNow = evaluation.status === 'DISPUTED' && canResolve
+  // Cancelar: en SCHEDULED o IN_PROGRESS; permitido a Admin/HR/TeamLead y al
+  // evaluador asignado (atajo).
+  const canCancelNow =
+    ['SCHEDULED', 'IN_PROGRESS'].includes(evaluation.status)
+    && (canCancel || isEvaluator)
 
   const handleSaveDraft = async () => {
     const payload: Record<string, any> = {}
@@ -172,8 +192,81 @@ export function EvaluationEditor({ id }: { id: string }) {
                 {ack.isPending ? 'Confirmando…' : 'Confirmar recibida'}
               </button>
             )}
+            {canDispute && (
+              <button
+                type="button"
+                onClick={() => setDisputeOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[5px] text-[12px] text-ink-2 hover:border-paper-line-soft"
+              >
+                <Icon.AlertTriangle size={11} />
+                Disputar
+              </button>
+            )}
+            {canResolveNow && (
+              <button
+                type="button"
+                onClick={() => setResolveOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-[5px] text-[12px] font-medium text-primary-foreground"
+              >
+                Resolver disputa
+              </button>
+            )}
+            {canCancelNow && (
+              <button
+                type="button"
+                onClick={() => setCancelOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-paper-line bg-paper-raised px-2.5 py-[5px] text-[12px] text-ink-2 hover:border-paper-line-soft"
+              >
+                Cancelar
+              </button>
+            )}
           </>
         }
+      />
+
+      {/* Dialogs de lifecycle */}
+      <ReasonDialog
+        open={disputeOpen}
+        onOpenChange={setDisputeOpen}
+        title="Disputar evaluación"
+        description="Si no estás de acuerdo con esta evaluación, indica el motivo. RR. HH. revisará tu caso antes de cerrarla."
+        placeholder="Ej. Las métricas de cumplimiento no reflejan el período correcto…"
+        confirmLabel="Disputar"
+        confirmTone="destructive"
+        requireText
+        isPending={dispute.isPending}
+        onConfirm={async (reason) => {
+          await dispute.mutateAsync(reason)
+          setDisputeOpen(false)
+        }}
+      />
+      <ReasonDialog
+        open={resolveOpen}
+        onOpenChange={setResolveOpen}
+        title="Resolver disputa"
+        description="Cierra la disputa con una nota explicando la decisión. Se guarda en el historial de la evaluación."
+        placeholder="Ej. Tras revisar con el evaluador, se ajustó el período evaluado y el sujeto quedó conforme…"
+        confirmLabel="Resolver"
+        requireText
+        isPending={resolve.isPending}
+        onConfirm={async (resolution) => {
+          await resolve.mutateAsync(resolution)
+          setResolveOpen(false)
+        }}
+      />
+      <ReasonDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Cancelar evaluación"
+        description="La evaluación se marcará como CANCELADA y ya no se podrá completar. Esta acción no se puede revertir."
+        placeholder="Motivo (opcional)…"
+        confirmLabel="Cancelar evaluación"
+        confirmTone="destructive"
+        isPending={cancel.isPending}
+        onConfirm={async (reason) => {
+          await cancel.mutateAsync(reason)
+          setCancelOpen(false)
+        }}
       />
 
       {/* Top row: score + radar */}

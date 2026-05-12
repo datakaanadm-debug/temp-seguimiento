@@ -21,6 +21,8 @@ export type Capability =
   | 'create_okr'
   | 'create_mentor_session'
   | 'manage_onboarding_template'
+  | 'manage_scorecards'
+  | 'resolve_disputes'
   | 'upload_attachments'
 
 export const CAPABILITY_MATRIX: Record<Capability, MembershipRole[]> = {
@@ -40,6 +42,10 @@ export const CAPABILITY_MATRIX: Record<Capability, MembershipRole[]> = {
   create_okr: ['tenant_admin', 'hr', 'team_lead', 'intern'],
   create_mentor_session: ['tenant_admin', 'hr', 'mentor'],
   manage_onboarding_template: ['tenant_admin', 'hr'],
+  manage_scorecards: ['tenant_admin', 'hr'],
+  // Mismo set que el backend EvaluationPolicy::resolve — TeamLead no tiene
+  // autoridad porque la disputa puede ser contra ellos (conflicto de interés).
+  resolve_disputes: ['tenant_admin', 'hr'],
   upload_attachments: ['tenant_admin', 'hr', 'team_lead', 'mentor', 'intern'],
 }
 

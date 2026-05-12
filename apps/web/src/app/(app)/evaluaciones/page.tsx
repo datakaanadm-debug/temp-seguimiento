@@ -8,9 +8,11 @@ import { SectionTitle, PaperBadge, TonalAvatar } from '@/components/ui/primitive
 import { Skeleton } from '@/components/ui/skeleton'
 import { useEvaluations } from '@/features/performance/hooks/use-evaluations'
 import { NewEvaluationDialog } from '@/features/performance/components/new-evaluation-dialog'
+import { AssignEvaluatorDialog } from '@/features/performance/components/assign-evaluator-dialog'
 import { Can } from '@/components/shared/can'
+import { useCan } from '@/hooks/use-can'
 import { cn } from '@/lib/utils'
-import type { EvaluationStatus } from '@/types/api'
+import type { Evaluation, EvaluationStatus } from '@/types/api'
 
 const STATUS_TONE: Record<EvaluationStatus, 'neutral' | 'info' | 'accent' | 'warn' | 'ok' | 'danger'> = {
   SCHEDULED: 'neutral',
@@ -39,6 +41,10 @@ export default function EvaluacionesPage() {
   const [status, setStatus] = useQueryState('status', parseAsString)
   const [newQuery, setNewQuery] = useQueryState('new', parseAsBoolean)
   const [newOpen, setNewOpen] = useState(false)
+  const [assignTarget, setAssignTarget] = useState<Evaluation | null>(null)
+  // create_evaluations cubre el mismo set de roles autorizados para asignar
+  // (Admin/HR/TeamLead). Reusamos esa capability en lugar de inventar otra.
+  const canAssign = useCan('create_evaluations')
 
   // Si el user entra con ?new=true (link viejo o desde tour), abrir el dialog.
   // Luego limpiamos el query param para que el back-button no re-abra.
@@ -138,55 +144,88 @@ export default function EvaluacionesPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-paper-line bg-paper-raised">
-          {items.map((e, i) => (
-            <Link
-              key={e.id}
-              href={`/evaluaciones/${e.id}`}
-              className={cn(
-                'grid items-center gap-4 px-4 py-3 transition hover:bg-paper-bg-2',
-                i < items.length - 1 && 'border-b border-paper-line-soft',
-              )}
-              style={{ gridTemplateColumns: '36px 1fr 140px 120px 110px 32px' }}
-            >
-              <TonalAvatar
-                size={32}
-                name={e.subject?.name ?? e.subject?.email}
-              />
-              <div className="min-w-0">
-                <div className="truncate text-[13px] font-medium text-ink">
-                  {e.subject?.name ?? 'Sin sujeto'}
-                </div>
-                <div className="truncate text-[11px] text-ink-3">
-                  {e.kind_label ?? e.kind}
-                  {e.scheduled_for &&
-                    ` · ${new Date(e.scheduled_for).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`}
-                </div>
-              </div>
-              <div>
-                <PaperBadge tone={STATUS_TONE[e.status]}>
-                  {STATUS_LABEL[e.status]}
-                </PaperBadge>
-              </div>
-              <div className="text-right">
-                {e.overall_score != null ? (
-                  <div className="flex items-baseline justify-end gap-1">
-                    <span className="font-serif text-[20px] leading-none">{e.overall_score}</span>
-                    <span className="font-mono text-[10px] text-ink-3">/ 100</span>
-                  </div>
-                ) : (
-                  <span className="font-mono text-[11px] text-ink-muted">—</span>
+          {items.map((e, i) => {
+            // El botón Asignar sólo aparece cuando el row es asignable
+            // (SCHEDULED o IN_PROGRESS) y el user tiene la capability.
+            const canShowAssign = canAssign && (e.status === 'SCHEDULED' || e.status === 'IN_PROGRESS')
+            return (
+              <div
+                key={e.id}
+                className={cn(
+                  'relative grid items-center gap-4 px-4 py-3 transition hover:bg-paper-bg-2',
+                  i < items.length - 1 && 'border-b border-paper-line-soft',
                 )}
+                style={{ gridTemplateColumns: '36px 1fr 140px 120px 110px 90px 32px' }}
+              >
+                {/* Link cubre toda la card excepto el botón Asignar */}
+                <Link
+                  href={`/evaluaciones/${e.id}`}
+                  className="absolute inset-0"
+                  aria-label={`Abrir evaluación de ${e.subject?.name ?? 'sin sujeto'}`}
+                />
+                <TonalAvatar
+                  size={32}
+                  name={e.subject?.name ?? e.subject?.email}
+                  className="relative pointer-events-none"
+                />
+                <div className="relative min-w-0 pointer-events-none">
+                  <div className="truncate text-[13px] font-medium text-ink">
+                    {e.subject?.name ?? 'Sin sujeto'}
+                  </div>
+                  <div className="truncate text-[11px] text-ink-3">
+                    {e.kind_label ?? e.kind}
+                    {e.scheduled_for &&
+                      ` · ${new Date(e.scheduled_for).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                  </div>
+                </div>
+                <div className="relative pointer-events-none">
+                  <PaperBadge tone={STATUS_TONE[e.status]}>
+                    {STATUS_LABEL[e.status]}
+                  </PaperBadge>
+                </div>
+                <div className="relative text-right pointer-events-none">
+                  {e.overall_score != null ? (
+                    <div className="flex items-baseline justify-end gap-1">
+                      <span className="font-serif text-[20px] leading-none">{e.overall_score}</span>
+                      <span className="font-mono text-[10px] text-ink-3">/ 100</span>
+                    </div>
+                  ) : (
+                    <span className="font-mono text-[11px] text-ink-muted">—</span>
+                  )}
+                </div>
+                <div className="relative text-right font-mono text-[10.5px] text-ink-3 pointer-events-none">
+                  {e.evaluator?.name?.split(' ')[0] ?? '—'}
+                </div>
+                <div className="relative flex justify-end">
+                  {canShowAssign ? (
+                    <button
+                      type="button"
+                      onClick={(ev) => {
+                        ev.preventDefault()
+                        ev.stopPropagation()
+                        setAssignTarget(e)
+                      }}
+                      className="rounded-md border border-paper-line bg-paper-raised px-2 py-0.5 text-[10.5px] text-ink-2 hover:border-paper-line-soft"
+                    >
+                      {e.evaluator_user_id ? 'Reasignar' : 'Asignar'}
+                    </button>
+                  ) : (
+                    <span className="font-mono text-[10px] text-ink-muted">—</span>
+                  )}
+                </div>
+                <Icon.Chev size={12} className="relative text-ink-muted pointer-events-none" />
               </div>
-              <div className="text-right font-mono text-[10.5px] text-ink-3">
-                {e.evaluator?.name?.split(' ')[0] ?? '—'}
-              </div>
-              <Icon.Chev size={12} className="text-ink-muted" />
-            </Link>
-          ))}
+            )
+          })}
         </div>
       )}
 
       <NewEvaluationDialog open={newOpen} onOpenChange={setNewOpen} />
+      <AssignEvaluatorDialog
+        evaluation={assignTarget}
+        open={!!assignTarget}
+        onOpenChange={(o) => { if (!o) setAssignTarget(null) }}
+      />
     </div>
   )
 }

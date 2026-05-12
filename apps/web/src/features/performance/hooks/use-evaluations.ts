@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ApiError } from '@/lib/api-client'
 import {
-  acknowledgeEvaluation, getEvaluation, listEvaluations, saveResponses, submitEvaluation,
+  acknowledgeEvaluation, cancelEvaluation, disputeEvaluation, getEvaluation,
+  listEvaluations, resolveEvaluation, saveResponses, submitEvaluation,
 } from '../api/performance'
 
 export function useEvaluations(params: Parameters<typeof listEvaluations>[0] = {}) {
@@ -63,5 +64,53 @@ export function useAcknowledgeEvaluation(id: string) {
       toast.success('Confirmada')
     },
     onError: () => toast.error('No se pudo confirmar'),
+  })
+}
+
+export function useDisputeEvaluation(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (reason: string | null) => disputeEvaluation(id, reason),
+    onSuccess: (res) => {
+      qc.setQueryData(['evaluations', 'detail', id], res.data)
+      qc.invalidateQueries({ queryKey: ['evaluations'] })
+      toast.success('Disputa registrada. RR. HH. la revisará.')
+    },
+    onError: (err) => {
+      const msg = err instanceof ApiError ? err.message : 'No se pudo registrar la disputa'
+      toast.error(msg)
+    },
+  })
+}
+
+export function useResolveEvaluation(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (resolution: string | null) => resolveEvaluation(id, resolution),
+    onSuccess: (res) => {
+      qc.setQueryData(['evaluations', 'detail', id], res.data)
+      qc.invalidateQueries({ queryKey: ['evaluations'] })
+      toast.success('Disputa resuelta')
+    },
+    onError: (err) => {
+      const msg = err instanceof ApiError ? err.message : 'No se pudo resolver'
+      toast.error(msg)
+    },
+  })
+}
+
+export function useCancelEvaluation(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (reason: string | null) => cancelEvaluation(id, reason),
+    onSuccess: (res) => {
+      qc.setQueryData(['evaluations', 'detail', id], res.data)
+      qc.invalidateQueries({ queryKey: ['evaluations'] })
+      toast.success('Evaluación cancelada')
+    },
+    onError: (err) => {
+      const msg = err instanceof ApiError ? err.message : 'No se pudo cancelar'
+      toast.error(msg)
+    },
   })
 }
