@@ -31,6 +31,9 @@ return [
         '#^http://(localhost|127\.0\.0\.1):\d+$#',
         // Vercel: deployment estable + preview deployments (*-{hash}.vercel.app).
         '#^https://[a-z0-9-]+\.vercel\.app$#',
+        // Dominio custom de producción: senda.datakaan.com, apisenda.datakaan.com,
+        // staging.datakaan.com, etc.
+        '#^https://[a-z0-9-]+\.datakaan\.com$#',
         // Subdominios custom de senda.com / interna.app por si los activamos.
         '#^https://[a-z0-9-]+\.senda\.com$#',
         '#^https://[a-z0-9-]+\.interna\.app$#',
