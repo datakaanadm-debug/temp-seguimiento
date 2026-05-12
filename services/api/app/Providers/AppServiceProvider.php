@@ -60,17 +60,22 @@ class AppServiceProvider extends ServiceProvider
         // y todos los GETs subsequentes (notifications, presence,
         // unread-count) reciben 401 porque la cookie no llega.
         //
-        // Hacemos el override en código (no env) para que sea immune al
-        // config:cache stale: si `php artisan config:cache` corrió en build
-        // phase con envs vacías, las envs runtime se ignoran de todas formas
-        // — pero este boot() corre en CADA request y aplica los valores
-        // correctos al runtime config.
-        if (app()->environment('production')) {
+        // Triggers cuando APP_URL es HTTPS (más robusto que app()->env() —
+        // si APP_ENV no está seteado o vale 'local' por error en Railway,
+        // el check basado en APP_URL sigue protegiéndonos).
+        //
+        // Hardcodeamos session.domain en lugar de leer env() porque después
+        // del config:cache las llamadas a env() retornan null fuera de los
+        // archivos de config. El dominio del producto está fijo y vale más
+        // que la cookie nunca quede mal seteada por una env vacía.
+        $appUrl = (string) config('app.url');
+        if (str_starts_with($appUrl, 'https://')) {
             config([
                 'session.same_site' => 'none',
                 'session.secure' => true,
-                'session.domain' => env('SESSION_DOMAIN', '.datakaan.com'),
+                'session.domain' => '.datakaan.com',
                 'session.http_only' => true,
+                'session.partitioned' => false,
             ]);
 
             // Asegura que url() y route() generen https:// (Railway termina
