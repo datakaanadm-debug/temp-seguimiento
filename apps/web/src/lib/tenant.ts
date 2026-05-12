@@ -21,13 +21,29 @@ function readCookie(name: string): string | null {
 
 export function getTenantSlug(): string | null {
   if (typeof window === 'undefined') return null
-  const sub = extractSubdomain(window.location.hostname, config.rootDomain)
-  if (sub) return sub
+
+  // Prioridad:
+  //   1. Lo que el usuario eligió explícitamente en el campo Empresa del
+  //      login (guardado en localStorage + cookie). Esto permite que el
+  //      slug del tenant NO tenga que matchear el subdomain — útil cuando
+  //      el subdomain es del producto (senda.datakaan.com) pero el tenant
+  //      se llama distinto (datakaan).
+  //   2. Subdomain del host actual — auto-detect para usuarios que llegan
+  //      a un dominio tenant-específico (acme.senda.com) sin haber elegido
+  //      en el login.
+  //
+  // Si invertimos a (2) > (1), el campo Empresa del login se vuelve inútil
+  // cuando estás bajo cualquier subdomain.
+  let stored: string | null = null
   try {
-    return window.localStorage.getItem(STORAGE_KEY) ?? readCookie(COOKIE_NAME)
+    stored = window.localStorage.getItem(STORAGE_KEY)
   } catch {
-    return readCookie(COOKIE_NAME)
+    /* localStorage puede no estar disponible (Safari private mode, etc.) */
   }
+  if (!stored) stored = readCookie(COOKIE_NAME)
+  if (stored) return stored
+
+  return extractSubdomain(window.location.hostname, config.rootDomain)
 }
 
 export function setTenantSlug(slug: string): void {
