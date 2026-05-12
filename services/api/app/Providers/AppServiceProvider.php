@@ -129,13 +129,58 @@ class AppServiceProvider extends ServiceProvider
             \App\Modules\Tasks\Domain\Events\TimeEntryStopped::class,
             \App\Modules\Tasks\Infrastructure\Listeners\UpdateTaskActualMinutes::class,
         );
+        // AuditTaskActivity escucha todos los eventos de Task + Project
+        // — registra cada uno en activity_log (visible en /configuracion/audit-log).
         Event::listen(
             [
                 \App\Modules\Tasks\Domain\Events\TaskCreated::class,
                 \App\Modules\Tasks\Domain\Events\TaskUpdated::class,
                 \App\Modules\Tasks\Domain\Events\TaskStateChanged::class,
+                \App\Modules\Tasks\Domain\Events\TaskAssigned::class,
+                \App\Modules\Tasks\Domain\Events\TaskCommented::class,
+                \App\Modules\Tasks\Domain\Events\ProjectCreated::class,
+                \App\Modules\Tasks\Domain\Events\ProjectCompleted::class,
             ],
             \App\Modules\Tasks\Infrastructure\Listeners\AuditTaskActivity::class,
+        );
+
+        // ── Audit log: listeners por módulo ────────────────────────────────
+        // Cada uno escucha varios events del módulo y los registra en
+        // activity_log via ActivityLogger::record. Visible en
+        // /configuracion/audit-log para Admin/Supervisor.
+        Event::listen(
+            [
+                \App\Modules\Identity\Domain\Events\UserActivated::class,
+                \App\Modules\Identity\Domain\Events\UserInvited::class,
+            ],
+            \App\Modules\Identity\Infrastructure\Listeners\AuditIdentityActivity::class,
+        );
+        Event::listen(
+            [
+                \App\Modules\People\Domain\Events\InternAssignedToMentor::class,
+                \App\Modules\People\Domain\Events\InternUnassignedFromMentor::class,
+                \App\Modules\People\Domain\Events\InternHired::class,
+            ],
+            \App\Modules\People\Infrastructure\Listeners\AuditPeopleActivity::class,
+        );
+        Event::listen(
+            [
+                \App\Modules\Performance\Domain\Events\EvaluationScheduled::class,
+                \App\Modules\Performance\Domain\Events\EvaluationSubmitted::class,
+                \App\Modules\Performance\Domain\Events\EvaluationAcknowledged::class,
+                \App\Modules\Performance\Domain\Events\EvaluationDisputed::class,
+                \App\Modules\Performance\Domain\Events\EvaluationResolved::class,
+            ],
+            \App\Modules\Performance\Infrastructure\Listeners\AuditPerformanceActivity::class,
+        );
+        Event::listen(
+            [
+                \App\Modules\Tracking\Domain\Events\DailyReportSubmitted::class,
+                \App\Modules\Tracking\Domain\Events\DailyReportReviewed::class,
+                \App\Modules\Tracking\Domain\Events\BlockerRaised::class,
+                \App\Modules\Tracking\Domain\Events\BlockerResolved::class,
+            ],
+            \App\Modules\Tracking\Infrastructure\Listeners\AuditTrackingActivity::class,
         );
 
         // Tracking

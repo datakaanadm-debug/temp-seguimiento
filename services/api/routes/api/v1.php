@@ -42,3 +42,4 @@ require app_path('Modules/Calendar/Http/routes.php');
 require app_path('Modules/Automation/Http/routes.php');
 require app_path('Modules/Search/Http/routes.php');
 require app_path('Modules/Analytics/Http/routes.php');
+require app_path('Modules/Audit/Http/routes.php');

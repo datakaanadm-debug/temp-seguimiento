@@ -42,6 +42,8 @@ const NAV: NavItem[] = [
     roles: ['tenant_admin', 'hr'] },
   { href: '/configuracion/scorecards', label: 'Scorecards de evaluación', icon: 'Eval', section: 'Workspace',
     roles: ['tenant_admin', 'hr'] },
+  { href: '/configuracion/audit-log', label: 'Registro de actividad', icon: 'Clock', section: 'Workspace',
+    roles: ['tenant_admin', 'supervisor'] },
 ]
 
 export default function ConfiguracionLayout({ children }: { children: React.ReactNode }) {
