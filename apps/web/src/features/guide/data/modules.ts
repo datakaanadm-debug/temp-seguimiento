@@ -333,8 +333,8 @@ export const GUIDE_MODULES: GuideModule[] = [
     appPath: '/practicantes',
     accent: 'sky',
     summary:
-      'Roster completo de practicantes con su perfil: programa universitario, horas completadas/objetivo, mentor asignado, estado emocional promedio, evaluaciones, logros.',
-    roles: ['tenant_admin', 'hr', 'team_lead'],
+      'Roster completo de practicantes con su perfil: programa universitario, horas completadas/objetivo, mentor asignado, estado emocional promedio, evaluaciones, logros. También es el punto desde donde se invita a nuevos miembros al workspace.',
+    roles: ['tenant_admin', 'hr', 'team_lead', 'mentor'],
     flow: [
       { label: 'HR ve roster', actor: 'hr', hint: 'Filtros por estado, programa, mentor.' },
       { label: 'Click en una persona', actor: 'hr' },
