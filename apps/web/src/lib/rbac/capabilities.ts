@@ -28,18 +28,20 @@ export type Capability =
 
 export const CAPABILITY_MATRIX: Record<Capability, MembershipRole[]> = {
   // Supervisor es un rol read-only: ve analítica/dashboards/reportes pero no crea nada.
-  invite_users: ['tenant_admin', 'hr', 'team_lead'],
+  // Mentor está incluido en invite_users, create_projects y view_global_analytics
+  // porque en orgs chicas (DKN-style) actúa también como líder de su equipo.
+  invite_users: ['tenant_admin', 'hr', 'team_lead', 'mentor'],
   view_all_interns: ['tenant_admin', 'hr', 'supervisor'],
   create_evaluations: ['tenant_admin', 'hr', 'team_lead', 'mentor'],
   mentor_private_notes: ['mentor'],
   create_automations: ['tenant_admin', 'hr'],
-  view_global_analytics: ['tenant_admin', 'hr', 'team_lead', 'supervisor'],
+  view_global_analytics: ['tenant_admin', 'hr', 'team_lead', 'supervisor', 'mentor'],
   university_report: ['tenant_admin', 'hr', 'intern', 'supervisor'],
   configure_billing: ['tenant_admin'],
   view_audit_log: ['tenant_admin', 'supervisor'],
   edit_company: ['tenant_admin'],
   create_tasks: ['tenant_admin', 'hr', 'team_lead', 'mentor', 'intern'],
-  create_projects: ['tenant_admin', 'hr', 'team_lead'],
+  create_projects: ['tenant_admin', 'hr', 'team_lead', 'mentor'],
   create_okr: ['tenant_admin', 'hr', 'team_lead', 'intern'],
   create_mentor_session: ['tenant_admin', 'hr', 'mentor'],
   manage_onboarding_template: ['tenant_admin', 'hr'],

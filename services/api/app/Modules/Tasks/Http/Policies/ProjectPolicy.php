@@ -31,10 +31,13 @@ final class ProjectPolicy
 
     public function create(User $user): bool
     {
+        // Mentor también puede crear proyectos para su equipo (en orgs chicas
+        // el mentor actúa como líder del equipo que mentora).
         return in_array($user->primaryRole(), [
             MembershipRole::TenantAdmin,
             MembershipRole::HR,
             MembershipRole::TeamLead,
+            MembershipRole::Mentor,
         ], true);
     }
 

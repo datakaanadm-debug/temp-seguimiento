@@ -37,7 +37,10 @@ enum MembershipRole: string
 
     public function canInvite(): bool
     {
-        return in_array($this, [self::TenantAdmin, self::HR, self::TeamLead], true);
+        // Mentor incluido porque en orgs chicas (DKN-style) el mentor es
+        // también líder de su equipo y necesita poder invitar miembros
+        // nuevos sin pasar por HR.
+        return in_array($this, [self::TenantAdmin, self::HR, self::TeamLead, self::Mentor], true);
     }
 
     public function canManageTenant(): bool

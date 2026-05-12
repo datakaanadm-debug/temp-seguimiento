@@ -25,7 +25,7 @@ const NAV: NavItem[] = [
   { href: '/mentoria', label: 'Mentoría', icon: 'Mentor' },
   { href: '/evaluaciones', label: 'Evaluaciones', icon: 'Eval' },
   { href: '/okrs', label: 'OKRs', icon: 'Flag' },
-  { href: '/analitica', label: 'Analítica', icon: 'Analytics', roles: ['tenant_admin', 'hr', 'team_lead', 'supervisor'] },
+  { href: '/analitica', label: 'Analítica', icon: 'Analytics', roles: ['tenant_admin', 'hr', 'team_lead', 'supervisor', 'mentor'] },
   { href: '/onboarding', label: 'Onboarding', icon: 'Onboard' },
   { href: '/logros', label: 'Logros', icon: 'Eval' },
   { href: '/practicantes', label: 'Personas', icon: 'People', roles: ['tenant_admin', 'hr', 'team_lead'] },

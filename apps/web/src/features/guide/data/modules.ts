@@ -104,7 +104,7 @@ export const GUIDE_MODULES: GuideModule[] = [
     accent: 'orange',
     summary:
       'Agrupador de tareas con equipo, fechas de inicio/fin, estado y vista kanban. Útil cuando varias tareas comparten objetivo o cliente.',
-    roles: ['tenant_admin', 'hr', 'team_lead'],
+    roles: ['tenant_admin', 'hr', 'team_lead', 'mentor'],
     flow: [
       { label: 'Líder crea proyecto', actor: 'team_lead', hint: 'Nombre, equipo, fechas, prioridad.' },
       { label: 'Define equipo', actor: 'team_lead', hint: 'Membresía dentro del proyecto: practicantes + mentor.' },
@@ -250,7 +250,7 @@ export const GUIDE_MODULES: GuideModule[] = [
     accent: 'violet',
     summary:
       'Dashboards agregados del workspace: throughput de tareas, horas trabajadas por equipo, estado emocional promedio, evolución de evaluaciones, cumplimiento de OKRs.',
-    roles: ['tenant_admin', 'hr', 'team_lead', 'supervisor'],
+    roles: ['tenant_admin', 'hr', 'team_lead', 'supervisor', 'mentor'],
     flow: [
       { label: 'Sistema agrega datos cada noche', actor: 'system', hint: 'KPI snapshots, daily aggregates.' },
       { label: 'Admin/Lead abre /analitica', actor: 'team_lead' },
