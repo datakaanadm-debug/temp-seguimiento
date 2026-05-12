@@ -1,9 +1,29 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": [
+    "ENABLE_EXPERIMENTAL_COREPACK",
+    "VERCEL",
+    "VERCEL_ENV",
+    "VERCEL_URL",
+    "CI"
+  ],
+  "globalEnv": [
+    "NODE_ENV"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"],
+      "env": [
+        "NEXT_PUBLIC_API_URL",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_ROOT_DOMAIN",
+        "NEXT_PUBLIC_REVERB_APP_KEY",
+        "NEXT_PUBLIC_REVERB_HOST",
+        "NEXT_PUBLIC_REVERB_PORT",
+        "NEXT_PUBLIC_REVERB_SCHEME",
+        "NEXT_PUBLIC_SENTRY_DSN"
+      ]
     },
     "dev": {
       "cache": false,

@@ -41,9 +41,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // output: 'standalone' desactivado en dev Windows (exige symlinks). Activarlo en Docker prod.
 
-  experimental: {
-    typedRoutes: false,
-  },
+  typedRoutes: false,
 
   // ESLint ya corre como check separado en CI (Vercel también lo expone como
   // PR check). En el build de producción evitamos que un warning de lint
