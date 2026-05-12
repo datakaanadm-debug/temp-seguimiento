@@ -8,6 +8,10 @@ import { FlowDiagram } from './flow-diagram'
 import { RoleBadgeRow } from './role-badge'
 import type { GuideModule } from '../data/modules'
 
+// Pattern: fondo saturado (500/600) + icono blanco para garantizar contraste
+// sobre el glow del mismo accent. Antes usábamos bg-{accent}-100 + text-{accent}-700
+// y el icono se mimetizaba contra el gradient de fondo de la card. lime usa 600
+// porque el 500 es verde claro y blanco se pierde un poco. Igual para amber.
 const ACCENT_STYLES: Record<
   GuideModule['accent'],
   { ring: string; glow: string; iconBg: string; iconColor: string }
@@ -15,44 +19,44 @@ const ACCENT_STYLES: Record<
   amber: {
     ring: 'ring-amber-200 dark:ring-amber-700/30',
     glow: 'from-amber-100 to-transparent dark:from-amber-900/20',
-    iconBg: 'bg-amber-100 dark:bg-amber-900/30',
-    iconColor: 'text-amber-700 dark:text-amber-300',
+    iconBg: 'bg-amber-600 dark:bg-amber-500',
+    iconColor: 'text-white',
   },
   sky: {
     ring: 'ring-sky-200 dark:ring-sky-700/30',
     glow: 'from-sky-100 to-transparent dark:from-sky-900/20',
-    iconBg: 'bg-sky-100 dark:bg-sky-900/30',
-    iconColor: 'text-sky-700 dark:text-sky-300',
+    iconBg: 'bg-sky-500 dark:bg-sky-400',
+    iconColor: 'text-white',
   },
   rose: {
     ring: 'ring-rose-200 dark:ring-rose-700/30',
     glow: 'from-rose-100 to-transparent dark:from-rose-900/20',
-    iconBg: 'bg-rose-100 dark:bg-rose-900/30',
-    iconColor: 'text-rose-700 dark:text-rose-300',
+    iconBg: 'bg-rose-500 dark:bg-rose-400',
+    iconColor: 'text-white',
   },
   violet: {
     ring: 'ring-violet-200 dark:ring-violet-700/30',
     glow: 'from-violet-100 to-transparent dark:from-violet-900/20',
-    iconBg: 'bg-violet-100 dark:bg-violet-900/30',
-    iconColor: 'text-violet-700 dark:text-violet-300',
+    iconBg: 'bg-violet-500 dark:bg-violet-400',
+    iconColor: 'text-white',
   },
   emerald: {
     ring: 'ring-emerald-200 dark:ring-emerald-700/30',
     glow: 'from-emerald-100 to-transparent dark:from-emerald-900/20',
-    iconBg: 'bg-emerald-100 dark:bg-emerald-900/30',
-    iconColor: 'text-emerald-700 dark:text-emerald-300',
+    iconBg: 'bg-emerald-500 dark:bg-emerald-400',
+    iconColor: 'text-white',
   },
   lime: {
     ring: 'ring-lime-200 dark:ring-lime-700/30',
     glow: 'from-lime-100 to-transparent dark:from-lime-900/20',
-    iconBg: 'bg-lime-100 dark:bg-lime-900/30',
-    iconColor: 'text-lime-700 dark:text-lime-300',
+    iconBg: 'bg-lime-600 dark:bg-lime-500',
+    iconColor: 'text-white',
   },
   orange: {
     ring: 'ring-orange-200 dark:ring-orange-700/30',
     glow: 'from-orange-100 to-transparent dark:from-orange-900/20',
-    iconBg: 'bg-orange-100 dark:bg-orange-900/30',
-    iconColor: 'text-orange-700 dark:text-orange-300',
+    iconBg: 'bg-orange-500 dark:bg-orange-400',
+    iconColor: 'text-white',
   },
 }
 
